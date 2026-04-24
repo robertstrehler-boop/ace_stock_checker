@@ -5048,43 +5048,71 @@ with tab_analyse:
 
         # ── Ergebnisse anzeigen ───────────────────────────────────────────────
         _sr_list = st.session_state.get("ace_search_results", [])
+
+        # Lesbare Börsenbezeichnungen
+        _exc_labels = {
+            "NMS": "Nasdaq", "NYQ": "NYSE", "PCX": "NYSE Arca", "NGM": "Nasdaq GM",
+            "NCM": "Nasdaq CM", "ASE": "NYSE American", "XETR": "Xetra",
+            "GER": "Berlin", "FRA": "Frankfurt", "STU": "Stuttgart",
+            "AMS": "Amsterdam", "PAR": "Paris", "MIL": "Mailand",
+            "LSE": "London", "VSE": "Wien", "OSL": "Oslo", "BRU": "Brüssel",
+            "TDG": "Tradegate", "LIS": "Lissabon",
+        }
+        # Yahoo-Priorität: welche Exchanges funktionieren zuverlässig
+        _yahoo_prio = {e: 1 for e in ["NMS","NYQ","PCX","NGM","NCM","ASE"]}
+        _yahoo_prio.update({e: 2 for e in ["XETR","GER","FRA","STU","TDG"]})
+        _yahoo_prio.update({e: 3 for e in ["AMS","PAR","MIL","LSE","OSL","BRU","LIS","VSE"]})
+
         if _sr_list:
             _opts = []; _opt_tickers = []; _opt_recommended = []
             for _r in _sr_list:
                 _sym    = _r.get("symbol", "")
                 _name   = (_r.get("shortname") or _r.get("longname") or "")[:38]
-                _exc    = _r.get("exchange", "")
+                _exc    = (_r.get("exchange", "") or "").upper()
+                _exc_lbl = _exc_labels.get(_exc, _exc)
                 _isin_r = _r.get("isin", "")
                 _yname  = _r.get("shortname") or _r.get("longname") or ""
                 _, _pf_hit, _match_reason = find_in_portfolio(_sym, _isin_r, _yname)
-                if _pf_hit:
-                    _badge = f"  · Im Portfolio ({_match_reason})"
-                else:
-                    _badge = ""
-                _opts.append(f"{_sym}  —  {_name}  ({_exc}){_badge}")
+                _badge = "  · Im Portfolio" if _pf_hit else ""
+                _opts.append(f"{_sym}  —  {_name}  ({_exc_lbl}){_badge}")
                 _opt_tickers.append(_sym)
                 _opt_recommended.append(bool(_pf_hit))
 
-            # Zeige Hinweis wenn ein Treffer im PF ist
-            _pf_match_idx = next((i for i, r in enumerate(_opt_recommended) if r), None)
-            if _pf_match_idx is not None:
-                _pf_sym = _opt_tickers[_pf_match_idx]
-                _pf_exc = (_sr_list[_pf_match_idx].get("exchange") or "").upper()
-                st.markdown(
-                    f'<div style="font-size:0.78rem;color:#00C864;opacity:0.85;'
-                    f'margin-bottom:0.25rem;padding-left:2px;">'
-                    f'Empfehlung: <strong>{_pf_sym}</strong> ({_pf_exc}) — '
-                    f'dieser Ticker entspricht deiner Portfolio-Position.</div>',
-                    unsafe_allow_html=True)
+            # Auto-Selektion: Portfolio-Match hat Prio, dann bester Yahoo-Ticker
+            _cur_sel = st.session_state.get("ace_selected_ticker", "")
+            if not _cur_sel or _cur_sel not in _opt_tickers:
+                _pf_idx = next((i for i, r in enumerate(_opt_recommended) if r), None)
+                if _pf_idx is not None:
+                    _cur_sel = _opt_tickers[_pf_idx]
+                else:
+                    # Besten Yahoo-Ticker automatisch wählen
+                    _best_prio = 99; _best_sym = _opt_tickers[0]
+                    for _r in _sr_list:
+                        _s = _r.get("symbol",""); _e = (_r.get("exchange","") or "").upper()
+                        _p = _yahoo_prio.get(_e, 10)
+                        if _p < _best_prio:
+                            _best_prio = _p; _best_sym = _s
+                    _cur_sel = _best_sym
+                st.session_state["ace_selected_ticker"] = _cur_sel
 
-            _cur_sel = st.session_state.get("ace_selected_ticker", _opt_tickers[0] if _opt_tickers else "")
             _cur_idx = _opt_tickers.index(_cur_sel) if _cur_sel in _opt_tickers else 0
-            _chosen  = st.selectbox("Treffer", _opts, index=_cur_idx,
-                                     key="ace_result_select",
-                                     label_visibility="collapsed")
-            _chosen_ticker = _opt_tickers[_opts.index(_chosen)]
-            # Namen + ISIN des gewählten Ergebnisses für späteres Portfolio-Matching merken
-            _chosen_idx = _opts.index(_chosen)
+
+            # Dropdown nur zeigen wenn mehrere sinnvolle Optionen vorhanden
+            if len(_opt_tickers) > 1:
+                _chosen = st.selectbox("Treffer", _opts, index=_cur_idx,
+                                       key="ace_result_select",
+                                       label_visibility="collapsed")
+                _chosen_ticker = _opt_tickers[_opts.index(_chosen)]
+            else:
+                _chosen_ticker = _opt_tickers[0]
+                st.markdown(
+                    f'<div style="font-size:0.85rem;padding:0.4rem 0.2rem;color:var(--text-color);">'
+                    f'<strong>{_opt_tickers[0]}</strong>  —  '
+                    f'{(_sr_list[0].get("shortname") or _sr_list[0].get("longname") or "")[:45]}'
+                    f'  <span style="opacity:0.5;font-size:0.78rem;">({_exc_labels.get((_sr_list[0].get("exchange","") or "").upper(), "")})</span>'
+                    f'</div>', unsafe_allow_html=True)
+
+            _chosen_idx = _opt_tickers.index(_chosen_ticker) if _chosen_ticker in _opt_tickers else 0
             _chosen_result = _sr_list[_chosen_idx] if _chosen_idx < len(_sr_list) else {}
             st.session_state["ace_selected_name"] = (
                 _chosen_result.get("shortname") or _chosen_result.get("longname") or "")
@@ -5288,12 +5316,13 @@ with tab_analyse:
                 position_value = st.number_input("Positionswert (€)", min_value=0.0, value=0.0, step=50.0)
 
         st.divider()
-        st.markdown('<div class="ace-section">Fundamentaldaten</div>', unsafe_allow_html=True)
-        fhc, fac = st.columns([0.6, 0.4])
-        with fac: auto_clicked = st.button("Kennzahlen laden", key="btn_auto", use_container_width=True)
+        _fhc, _fac = st.columns([0.6, 0.4])
+        with _fhc:
+            st.markdown('<div class="ace-section">Fundamentaldaten</div>', unsafe_allow_html=True)
+        with _fac:
+            _manual_reload = st.button("Kennzahlen laden", key="btn_auto", use_container_width=True)
 
         # Persistente Cache: nur cleanen wenn Ticker wirklich geändert
-        # (nicht cleanen wenn ticker leer — verhindert versehentliches Löschen)
         _cached_tk = st.session_state.get("ace_yf_ticker", "")
         if ticker and _cached_tk and _cached_tk != ticker:
             st.session_state.pop("ace_yf_metrics",  None)
@@ -5302,26 +5331,28 @@ with tab_analyse:
         elif ticker and not _cached_tk:
             st.session_state["ace_yf_ticker"] = ticker
 
-        if auto_clicked and ticker:
-            with st.spinner("Lade von Yahoo…"):
-                _fetched = fetch_yahoo_metrics(ticker)
+        # Auto-laden sobald Ticker gesetzt und noch keine Daten vorhanden — oder manuell per Button
+        yf_m        = st.session_state.get("ace_yf_metrics", {})
+        auto_loaded = bool(yf_m) and st.session_state.get("ace_yf_ticker") == ticker
+        if ticker and (not auto_loaded or _manual_reload):
+            with st.spinner("Lade Fundamentaldaten…"):
+                _fetched     = fetch_yahoo_metrics(ticker)
                 _fetched_ext = fetch_extended_metrics(ticker)
             if _fetched:
                 st.session_state["ace_yf_metrics"]  = _fetched
                 st.session_state["ace_ext_metrics"] = _fetched_ext
                 st.session_state["ace_yf_ticker"]   = ticker
+                yf_m        = _fetched
+                auto_loaded = True
             else:
-                st.warning("Yahoo liefert keine Fundamentaldaten für diesen Ticker.")
+                st.caption("Keine Fundamentaldaten verfügbar — Werte können manuell eingetragen werden.")
 
-        yf_m       = st.session_state.get("ace_yf_metrics", {})
-        auto_loaded = bool(yf_m) and st.session_state.get("ace_yf_ticker") == ticker
         if auto_loaded:
             cur = yf_m.get("currency", "")
-            with fhc:
-                st.markdown(
-                    f'<div style="font-size:0.82rem;color:#00C864;padding-top:0.4rem;">'
-                    f'✓ Yahoo-Daten geladen{(" · " + cur) if cur else ""}</div>',
-                    unsafe_allow_html=True)
+            st.markdown(
+                f'<div style="font-size:0.82rem;color:#00C864;padding-top:0.4rem;margin-bottom:0.5rem;">'
+                f'Daten geladen{(" · " + cur) if cur else ""}</div>',
+                unsafe_allow_html=True)
 
         def fv(key, fb): return fmt_v(yf_m[key]) if (auto_loaded and yf_m.get(key) is not None) else fb
 
