@@ -100,7 +100,7 @@ def bucket(score):
     if score >= 8.0: return "stark"
     if score >= 7.0: return "gut"
     if score >= 6.0: return "ok"
-    if score >= 5.0: return "🟠 unruhig"
+    if score >= 5.0: return "unruhig"
     return "nicht sauber"
 
 def compute_position_weight(portfolio_total, position_value):
@@ -4656,23 +4656,23 @@ def beginner_translate(detail: str) -> str:
     if "entry-zone aktiv" in d_lower or "einstiegsfenster ist jetzt offen" in d_lower:
         return "Jetzt ist ein guter Moment — der Kurs ist nahe seinem Durchschnittspreis. Gestaffelt einsteigen ist ideal."
     if "warte auf rücksetzer" in d_lower or "weit über" in d_lower and "ma20" in d_lower:
-        return "⏳ Noch etwas warten — der Kurs ist gerade stark gestiegen. Ein günstigerer Einstieg kommt wahrscheinlich noch."
+        return "Noch etwas warten — der Kurs ist gerade stark gestiegen. Ein günstigerer Einstieg kommt wahrscheinlich noch."
     if "leicht über ma20" in d_lower or "kleine erste tranche" in d_lower:
         return "Ein kleiner Erstkauf ist möglich, aber nicht der perfekte Zeitpunkt. Lieber auf einen Rücksetzer warten."
     if "unter ma20" in d_lower and "warte auf tagesschluss" in d_lower:
-        return "⏳ Noch abwarten — der Kurs ist unter seinem Durchschnitt. Erst kaufen, wenn er sich wieder erholt."
+        return "Noch abwarten — der Kurs ist unter seinem Durchschnitt. Erst kaufen, wenn er sich wieder erholt."
     # RSI Trigger
     if "rsi-filter" in d_lower and "überkauft" in d_lower:
-        return "⏳ Abkühlung abwarten — die Aktie ist gerade sehr gefragt. Besser einsteigen wenn sich der Andrang legt."
+        return "Abkühlung abwarten — die Aktie ist gerade sehr gefragt. Besser einsteigen wenn sich der Andrang legt."
     if "rsi-timing" in d_lower and ("abgekühlt" in d_lower or "gut abgekühlt" in d_lower):
         return "Guter Moment — die Aktie ist weder überhitzt noch am Boden. Jetzt einsteigen macht Sinn."
     if "rsi" in d_lower and "schwach" in d_lower and "stabilisierung" in d_lower:
-        return "⏳ Noch Geduld — die Aktie hat zuletzt nachgegeben. Erst kaufen wenn sie zwei grüne Tage in Folge zeigt."
+        return "Noch Geduld — die Aktie hat zuletzt nachgegeben. Erst kaufen wenn sie zwei grüne Tage in Folge zeigt."
     # MACD Trigger
     if "macd-kreuzung bullisch" in d_lower:
         return "Frisches Kaufsignal — ein technischer Indikator hat gerade nach oben gedreht. Zeitnah handeln sinnvoll."
     if "macd-kreuzung bärisch" in d_lower:
-        return "⏳ Kein guter Zeitpunkt — ein technischer Indikator hat nach unten gedreht. Entry lieber verschieben."
+        return "Kein guter Zeitpunkt — ein technischer Indikator hat nach unten gedreht. Entry lieber verschieben."
     if "macd bullisch" in d_lower:
         return "Momentum zeigt nach oben — unterstützt einen Einstieg."
     if "macd bärisch" in d_lower:
@@ -4680,7 +4680,7 @@ def beginner_translate(detail: str) -> str:
     # 52W-Position
     if "52w-position" in d_lower:
         if "nahe jahrestief" in d_lower or "mögliches schnäppchen" in d_lower:
-            return "📉 Jahrestief-Nähe: Die Aktie ist nahe ihrem günstigsten Preis der letzten 52 Wochen — mögliches Schnäppchen. Erst Stabilisierung abwarten."
+            return "Jahrestief-Nähe: Die Aktie ist nahe ihrem günstigsten Preis der letzten 52 Wochen — mögliches Schnäppchen. Erst Stabilisierung abwarten."
         if "nahe jahreshoch" in d_lower or "wenig luft" in d_lower:
             return "Nahe Jahreshoch: Die Aktie ist nahe ihrem Jahreshoch — wenig Puffer nach oben. Nur bei sehr starkem Trend einsteigen."
         if "solide mitte" in d_lower or "ausgewogen" in d_lower:
@@ -4989,7 +4989,7 @@ with tab_analyse:
             # Headline
             '<div style="font-size:2rem;font-weight:800;letter-spacing:-0.03em;'
             'line-height:1.2;color:var(--text-color);margin-bottom:0.7rem;">'
-            'Hey, schön<br>dass du da bist! 👋</div>'
+            'Hey, schön<br>dass du da bist!</div>'
             # Sub
             '<div style="font-size:0.92rem;color:var(--text-color);opacity:0.52;'
             'line-height:1.7;max-width:520px;margin:0 auto 1.6rem auto;">'
@@ -6002,7 +6002,7 @@ with tab_analyse:
 
             if _triggers:
                 _trig_ul = st.session_state.get("user_level", "pro")
-                _trig_label = ("🕐  Wann und wie kaufen?" if _trig_ul == "beginner"
+                _trig_label = ("Wann und wie kaufen?" if _trig_ul == "beginner"
                                else "Entry-Trigger — Wann und wie handeln?")
                 with st.expander(_trig_label, expanded=False):
                     if _trig_ul == "beginner":
@@ -6027,9 +6027,9 @@ with tab_analyse:
                         render_triggers(_triggers)
 
             if _risks:
-                _risk_label = ("⚠  Was spricht gegen einen Einstieg?"
+                _risk_label = ("Was spricht gegen einen Einstieg?"
                                if st.session_state.get("user_level") == "beginner"
-                               else "⚠  Was könnte die These zerreißen?")
+                               else "Was könnte die These zerreißen?")
                 with st.expander(_risk_label, expanded=False):
                     for r in _risks:
                         st.markdown(f'<div class="trig-stop">• {r}</div>',
@@ -6233,17 +6233,17 @@ with tab_analyse:
                         # Vereinfachte Red-Flag Texte
                         _f_txt = f
                         if "Bewertungs-Flag" in f or "KGV" in f or "KBV" in f:
-                            _f_txt = "⚠ Die Aktie ist aktuell hoch bewertet — prüfe, ob der Preis noch fair ist."
+                            _f_txt = "Die Aktie ist aktuell hoch bewertet — prüfe, ob der Preis noch fair ist."
                         elif "Stabilitäts-Flag" in f or "Beta" in f:
-                            _f_txt = "⚠ Diese Aktie schwankt stark — nichts für schwache Nerven."
+                            _f_txt = "Diese Aktie schwankt stark — nichts für schwache Nerven."
                         elif "Timing-Flag" in f:
-                            _f_txt = "⚠ Der Chart zeigt gerade kein sauberes Einstiegsbild — besser abwarten."
+                            _f_txt = "Der Chart zeigt gerade kein sauberes Einstiegsbild — besser abwarten."
                         elif "Business-Flag" in f:
-                            _f_txt = "⚠ Das Geschäftsmodell passt nicht optimal zur gewählten Strategie."
+                            _f_txt = "Das Geschäftsmodell passt nicht optimal zur gewählten Strategie."
                         elif "Portfolio-Flag" in f or "Gewicht" in f:
-                            _f_txt = "⚠ Diese Position ist bereits groß in deinem Depot — Risiko beachten."
+                            _f_txt = "Diese Position ist bereits groß in deinem Depot — Risiko beachten."
                         elif "Fundamentalrisiko" in f:
-                            _f_txt = "⚠ Die Zahlen des Unternehmens sind nicht stark genug für einen sicheren Einstieg."
+                            _f_txt = "Die Zahlen des Unternehmens sind nicht stark genug für einen sicheren Einstieg."
                         _rf_html += (
                             f'<div style="display:flex;align-items:flex-start;gap:0.5rem;'
                             f'padding:0.45rem 0.7rem;margin-bottom:0.3rem;'
@@ -6486,7 +6486,7 @@ with tab_watchlist:
     if not wl:
         st.markdown(
             '<div style="text-align:center;padding:3rem 1rem;">'
-            '<div style="font-size:2rem;margin-bottom:0.8rem;">📋</div>'
+            '<div style="font-size:2rem;margin-bottom:0.8rem;"></div>'
             '<div style="font-size:1.1rem;font-weight:600;margin-bottom:0.4rem;">'
             'Deine Watchlist ist leer</div>'
             '<div style="font-size:0.88rem;color:var(--text-color);opacity:0.5;line-height:1.6;">'
@@ -6632,7 +6632,7 @@ with tab_watchlist:
                         f'</div>'
                         + (f'<div style="font-size:0.65rem;color:var(--text-color);opacity:0.38;'
                            f'font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
-                           f'📌 {note[:35]}{"…" if len(note) > 35 else ""}</div>' if note else '')
+                           f'· {note[:35]}{"…" if len(note) > 35 else ""}</div>' if note else '')
                         + f'</div>',
                         unsafe_allow_html=True)
 
@@ -6846,7 +6846,7 @@ with tab_watchlist:
                                     unsafe_allow_html=True)
 
                         # ── Notiz ─────────────────────────────────────────────
-                        with st.expander("📌 Notiz", expanded=False):
+                        with st.expander("Notiz", expanded=False):
                             _cn = item.get("notes", "")
                             _nn = st.text_area("Notiz", value=_cn, key=f"note_{_key}",
                                                height=55, label_visibility="collapsed",
@@ -7932,7 +7932,7 @@ with tab_portfolio:
 
                 # Optionaler CSV-Upload für Kaufkurs
                 if _n_csv_match < len(_ppos):
-                    with st.expander("📄 Kaufkurse aus Steuerübersicht ergänzen (optional)",
+                    with st.expander("Kaufkurse aus Steuerübersicht ergänzen (optional)",
                                      expanded=(_n_csv_match == 0)):
                         st.markdown(
                             '<div class="ace-hint">Lade zusätzlich die '
