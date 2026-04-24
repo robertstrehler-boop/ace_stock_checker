@@ -4839,7 +4839,7 @@ with _rc:
             ("red_flags",[]),("entry_triggers",[]),("risk_hints",[]),
             ("ace_search_results",[]),("ace_search_q",""),
             ("ace_selected_ticker",""),("ace_selected_name",""),("ace_selected_isin",""),
-            ("ace_direct_ticker",""),("ace_yf_metrics",{}),("ace_yf_ticker",""),
+            ("ace_direct_ticker",""),("ace_yf_metrics",{}),("ace_yf_ticker",""),("ace_yf_failed",None),
             ("ace_mode_idx",0), ("show_radar",False),
             ("ace_ext_metrics",{}),
         ]:
@@ -5327,14 +5327,19 @@ with tab_analyse:
         if ticker and _cached_tk and _cached_tk != ticker:
             st.session_state.pop("ace_yf_metrics",  None)
             st.session_state.pop("ace_ext_metrics", None)
+            st.session_state.pop("ace_yf_failed",   None)
             st.session_state["ace_yf_ticker"] = ticker
         elif ticker and not _cached_tk:
             st.session_state["ace_yf_ticker"] = ticker
 
-        # Auto-laden sobald Ticker gesetzt und noch keine Daten vorhanden — oder manuell per Button
+        # Auto-laden: nur einmal pro Ticker — bei Fehler nur per Button retry
         yf_m        = st.session_state.get("ace_yf_metrics", {})
         auto_loaded = bool(yf_m) and st.session_state.get("ace_yf_ticker") == ticker
-        if ticker and (not auto_loaded or _manual_reload):
+        _yf_failed  = st.session_state.get("ace_yf_failed") == ticker
+        _should_load = ticker and (
+            (not auto_loaded and not _yf_failed) or _manual_reload
+        )
+        if _should_load:
             with st.spinner("Lade Fundamentaldaten…"):
                 _fetched     = fetch_yahoo_metrics(ticker)
                 _fetched_ext = fetch_extended_metrics(ticker)
@@ -5342,10 +5347,12 @@ with tab_analyse:
                 st.session_state["ace_yf_metrics"]  = _fetched
                 st.session_state["ace_ext_metrics"] = _fetched_ext
                 st.session_state["ace_yf_ticker"]   = ticker
+                st.session_state.pop("ace_yf_failed", None)
                 yf_m        = _fetched
                 auto_loaded = True
             else:
-                st.caption("Keine Fundamentaldaten verfügbar — Werte können manuell eingetragen werden.")
+                st.session_state["ace_yf_failed"] = ticker  # kein Auto-Retry
+                st.caption("Keine Fundamentaldaten verfügbar — Werte manuell eintragen oder 'Kennzahlen laden' erneut versuchen.")
 
         if auto_loaded:
             cur = yf_m.get("currency", "")
