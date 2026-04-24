@@ -97,11 +97,11 @@ def clip_score(x): return float(np.clip(x, 1, 10))
 def percent(x): return f"{x*100:.1f}%"
 
 def bucket(score):
-    if score >= 8.0: return "🟢 stark"
-    if score >= 7.0: return "🟢 gut"
-    if score >= 6.0: return "🟡 ok"
+    if score >= 8.0: return "stark"
+    if score >= 7.0: return "gut"
+    if score >= 6.0: return "ok"
     if score >= 5.0: return "🟠 unruhig"
-    return "🔴 nicht sauber"
+    return "nicht sauber"
 
 def compute_position_weight(portfolio_total, position_value):
     if not portfolio_total or portfolio_total <= 0: return None
@@ -1936,7 +1936,7 @@ def score_core_fundamentals(metrics):
 
     if avail == 0: return None, ["Keine Fundamentaldaten → Score nicht berechenbar."]
     _base_avail = sum(1 for k in ["beta","pe","peg","ps","pb","div_yield"] if metrics.get(k) is not None)
-    if _base_avail <= 2: score -= 0.4; reasons.append(f"⚠️ Datenlage: nur {_base_avail}/6 Basiskennzahlen.")
+    if _base_avail <= 2: score -= 0.4; reasons.append(f"Datenlage: nur {_base_avail}/6 Basiskennzahlen.")
     elif _base_avail >= 5: score += 0.1; reasons.append(f"Datenlage: {_base_avail}/6 Kennzahlen → gute Basis.")
     return clip_score(score), reasons
 
@@ -2023,7 +2023,7 @@ def score_hc_fundamentals(metrics):
 
     if avail == 0: return None, ["Keine Fundamentaldaten → Score nicht berechenbar."]
     _base_avail = sum(1 for k in ["mcap","beta","pe","peg","ps","div_yield"] if metrics.get(k) is not None)
-    if _base_avail <= 2: score -= 0.4; reasons.append(f"⚠️ Datenlage: nur {_base_avail}/6 Kennzahlen.")
+    if _base_avail <= 2: score -= 0.4; reasons.append(f"Datenlage: nur {_base_avail}/6 Kennzahlen.")
     elif _base_avail >= 5: score += 0.1; reasons.append(f"Datenlage: {_base_avail}/6 → gute Basis.")
     return clip_score(score), reasons
 
@@ -3738,19 +3738,19 @@ def build_depot_fit(ticker, mode, profile, total_score, story_info, level="pro")
     if n_total == 0:
         if mode == "Core Asset":
             if is_beginner:
-                lines.append(("🏗", "Diese Aktie ist als stabiles Langzeitinvestment eingestuft — "
+                lines.append(("◆", "Diese Aktie ist als stabiles Langzeitinvestment eingestuft — "
                               "ein solider Einstiegsbaustein für ein erstes Depot.", "#3b82f6"))
             else:
-                lines.append(("🏗", f"Core Asset mit Velox-Score {total_score:.1f}/10 — "
+                lines.append(("◆", f"Core Asset mit Velox-Score {total_score:.1f}/10 — "
                               "ideal als Anker für ein neu aufzubauendes Depot.", "#3b82f6"))
         else:
             if is_beginner:
-                lines.append(("⚡", "Diese Aktie ist ein versteckter Marktführer in seiner Nische — "
+                lines.append(("▸", "Diese Aktie ist ein versteckter Marktführer in seiner Nische — "
                               "als Beimischung in einem Depot oft eine starke Rendite-Quelle.", "#8b5cf6"))
             else:
-                lines.append(("⚡", f"Hidden Champion ({bm or 'Nischenmarktführer'}) — "
+                lines.append(("▸", f"Hidden Champion ({bm or 'Nischenmarktführer'}) — "
                               "als Satelliten-Position in einem Depot mit Core-Anker sehr geeignet.", "#8b5cf6"))
-        lines.append(("📋", "Du hast noch kein Depot bei Velox angelegt. Im Portfolio-Tab kannst du "
+        lines.append(("→", "Du hast noch kein Depot bei Velox angelegt. Im Portfolio-Tab kannst du "
                       "deine Positionen hinterlegen — dann bekommst du eine individuelle Einschätzung "
                       "wie diese Aktie in dein persönliches Depot passt.", "#64748b"))
         return lines
@@ -3776,7 +3776,7 @@ def build_depot_fit(ticker, mode, profile, total_score, story_info, level="pro")
             msg = ("Das wäre dein erster Core Asset — ein stabiles Fundament fürs Depot."
                    if is_beginner else
                    f"Du hast noch keinen Core Asset. Diese Position schafft das stabile Fundament.")
-            lines.append(("🏗", msg, "#3b82f6"))
+            lines.append(("◆", msg, "#3b82f6"))
         elif ca_ratio > 0.75:
             msg = ("Dein Depot besteht schon zu einem großen Teil aus ähnlichen stabilen Aktien. "
                    "Prüfe ob eine weitere die Diversifikation wirklich verbessert."
@@ -3797,7 +3797,7 @@ def build_depot_fit(ticker, mode, profile, total_score, story_info, level="pro")
                    "diese Aktie könnte als Rendite-Treiber interessant sein."
                    if is_beginner else
                    f"Kein HC im Portfolio. Diese Position bringt als erste HC-Beimischung Wachstumspotenzial.")
-            lines.append(("⚡", msg, "#8b5cf6"))
+            lines.append(("▸", msg, "#8b5cf6"))
         elif n_hc >= 4:
             msg = ("Du hast schon mehrere solcher Wachstumspositionen im Depot. "
                    "Prüfe ob eine weitere sinnvoll ist oder das Risiko zu hoch wird."
@@ -3835,13 +3835,13 @@ def build_depot_fit(ticker, mode, profile, total_score, story_info, level="pro")
                        if is_beginner else
                        f"Sektor-Klumpen: {_same_count}× '{sector}' im Portfolio ({_tk_list}). "
                        "Diversifikation in anderen Sektoren prüfen.")
-            lines.append(("📌", sec_txt, "#f59e0b"))
+            lines.append(("·", sec_txt, "#f59e0b"))
         elif _same_count == 0 and len(_port_sectors) >= 2:
             sec_txt = (f"Kein anderes '{sector}'-Investment im Depot — "
                        "diese Aktie schließt eine Sektor-Lücke."
                        if is_beginner else
                        f"Sektor '{sector}' noch nicht im Portfolio repräsentiert → echte Diversifikation.")
-            lines.append(("🎯", sec_txt, "#00C864"))
+            lines.append(("✓", sec_txt, "#00C864"))
 
     return lines
 
@@ -4654,7 +4654,7 @@ def beginner_translate(detail: str) -> str:
         return "Langfristiger Trend: Keine klare Richtung erkennbar — Geduld ist angebracht."
     # Entry-Zone
     if "entry-zone aktiv" in d_lower or "einstiegsfenster ist jetzt offen" in d_lower:
-        return "✅ Jetzt ist ein guter Moment — der Kurs ist nahe seinem Durchschnittspreis. Gestaffelt einsteigen ist ideal."
+        return "Jetzt ist ein guter Moment — der Kurs ist nahe seinem Durchschnittspreis. Gestaffelt einsteigen ist ideal."
     if "warte auf rücksetzer" in d_lower or "weit über" in d_lower and "ma20" in d_lower:
         return "⏳ Noch etwas warten — der Kurs ist gerade stark gestiegen. Ein günstigerer Einstieg kommt wahrscheinlich noch."
     if "leicht über ma20" in d_lower or "kleine erste tranche" in d_lower:
@@ -4665,12 +4665,12 @@ def beginner_translate(detail: str) -> str:
     if "rsi-filter" in d_lower and "überkauft" in d_lower:
         return "⏳ Abkühlung abwarten — die Aktie ist gerade sehr gefragt. Besser einsteigen wenn sich der Andrang legt."
     if "rsi-timing" in d_lower and ("abgekühlt" in d_lower or "gut abgekühlt" in d_lower):
-        return "✅ Guter Moment — die Aktie ist weder überhitzt noch am Boden. Jetzt einsteigen macht Sinn."
+        return "Guter Moment — die Aktie ist weder überhitzt noch am Boden. Jetzt einsteigen macht Sinn."
     if "rsi" in d_lower and "schwach" in d_lower and "stabilisierung" in d_lower:
         return "⏳ Noch Geduld — die Aktie hat zuletzt nachgegeben. Erst kaufen wenn sie zwei grüne Tage in Folge zeigt."
     # MACD Trigger
     if "macd-kreuzung bullisch" in d_lower:
-        return "✅ Frisches Kaufsignal — ein technischer Indikator hat gerade nach oben gedreht. Zeitnah handeln sinnvoll."
+        return "Frisches Kaufsignal — ein technischer Indikator hat gerade nach oben gedreht. Zeitnah handeln sinnvoll."
     if "macd-kreuzung bärisch" in d_lower:
         return "⏳ Kein guter Zeitpunkt — ein technischer Indikator hat nach unten gedreht. Entry lieber verschieben."
     if "macd bullisch" in d_lower:
@@ -4682,7 +4682,7 @@ def beginner_translate(detail: str) -> str:
         if "nahe jahrestief" in d_lower or "mögliches schnäppchen" in d_lower:
             return "📉 Jahrestief-Nähe: Die Aktie ist nahe ihrem günstigsten Preis der letzten 52 Wochen — mögliches Schnäppchen. Erst Stabilisierung abwarten."
         if "nahe jahreshoch" in d_lower or "wenig luft" in d_lower:
-            return "📈 Nahe Jahreshoch: Die Aktie ist nahe ihrem Jahreshoch — wenig Puffer nach oben. Nur bei sehr starkem Trend einsteigen."
+            return "Nahe Jahreshoch: Die Aktie ist nahe ihrem Jahreshoch — wenig Puffer nach oben. Nur bei sehr starkem Trend einsteigen."
         if "solide mitte" in d_lower or "ausgewogen" in d_lower:
             return "Die Aktie ist in der Mitte ihrer Jahrespreisspanne — ausgewogenes Chance/Risiko-Verhältnis."
         # Extrahiere die Prozentzahl
@@ -4692,9 +4692,9 @@ def beginner_translate(detail: str) -> str:
         return f"Jahrespreisposition ({_pos}% der Jahresspanne): Im mittleren Bereich — kein extremes Hoch oder Tief."
     # Portfolioposition-Trigger
     if "nachkauf-disziplin" in d_lower:
-        return "💡 Du liegst gut im Plus — beim Nachkauf lieber auf einen Rücksetzer warten, nicht der Stärke hinterherrennen."
+        return "Du liegst gut im Plus — beim Nachkauf lieber auf einen Rücksetzer warten, nicht der Stärke hinterherrennen."
     if "verlust-kontrolle" in d_lower:
-        return "⚠️ Die Position ist im Minus — kein emotionaler Nachkauf jetzt. Erst warten bis das Chart-Bild sich verbessert."
+        return "Die Position ist im Minus — kein emotionaler Nachkauf jetzt. Erst warten bis das Chart-Bild sich verbessert."
     if "break-even" in d_lower or "break-even-zone" in d_lower:
         return "Die Position ist ungefähr bei deinem Einstiegspreis — Geduld. Nachkauf erst wenn klare positive Signale kommen."
 
@@ -6815,7 +6815,7 @@ with tab_watchlist:
 
                         # ── Snapshot-Verlauf ──────────────────────────────────
                         if len(snaps) >= 2:
-                            with st.expander(f"📈 Score-Verlauf ({len(snaps)} Snapshots)",
+                            with st.expander(f"Score-Verlauf ({len(snaps)} Snapshots)",
                                              expanded=False):
                                 # Mini-Sparkline als Text-Visualisierung
                                 _spark_items = []
@@ -8790,7 +8790,7 @@ with tab_portfolio:
             if _n_miss:
                 st.markdown(
                     f'<div style="font-size:0.82rem;color:#F5A623;padding:0.3rem 0 0.5rem 0;">'
-                    f'⚠️ {_n_miss} Position(en) ohne Anteile — unter "✎ Position bearbeiten" eintragen.</div>',
+                    f'Hinweis: {_n_miss} Position(en) ohne Anteile — unter "✎ Position bearbeiten" eintragen.</div>',
                     unsafe_allow_html=True)
 
             # ── Sortierung ───────────────────────────────────────────────────
