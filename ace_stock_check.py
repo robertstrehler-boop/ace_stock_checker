@@ -1153,7 +1153,6 @@ def gpt_news_summary(titles: list, api_key: str, model="gpt-4.1-mini") -> str:
         return ""
 
 @st.cache_data(ttl=3600, show_spinner=False)
-@st.cache_data(ttl=3600, show_spinner=False)
 def fetch_yahoo_metrics(ticker):
     if not ticker: return {}
     try: info = yf.Ticker(ticker).info or {}
@@ -5059,10 +5058,6 @@ with tab_analyse:
             "LSE": "London", "VSE": "Wien", "OSL": "Oslo", "BRU": "Brüssel",
             "TDG": "Tradegate", "LIS": "Lissabon",
         }
-        # Yahoo-Priorität: welche Exchanges funktionieren zuverlässig
-        _yahoo_prio = {e: 1 for e in ["NMS","NYQ","PCX","NGM","NCM","ASE"]}
-        _yahoo_prio.update({e: 2 for e in ["XETR","GER","FRA","STU","TDG"]})
-        _yahoo_prio.update({e: 3 for e in ["AMS","PAR","MIL","LSE","OSL","BRU","LIS","VSE"]})
 
         if _sr_list:
             _opts = []; _opt_tickers = []; _opt_recommended = []
@@ -5079,21 +5074,11 @@ with tab_analyse:
                 _opt_tickers.append(_sym)
                 _opt_recommended.append(bool(_pf_hit))
 
-            # Auto-Selektion: Portfolio-Match hat Prio, dann bester Yahoo-Ticker
+            # Auto-Selektion: Portfolio-Match hat Prio, sonst erstes Yahoo-Ergebnis
             _cur_sel = st.session_state.get("ace_selected_ticker", "")
             if not _cur_sel or _cur_sel not in _opt_tickers:
                 _pf_idx = next((i for i, r in enumerate(_opt_recommended) if r), None)
-                if _pf_idx is not None:
-                    _cur_sel = _opt_tickers[_pf_idx]
-                else:
-                    # Besten Yahoo-Ticker automatisch wählen
-                    _best_prio = 99; _best_sym = _opt_tickers[0]
-                    for _r in _sr_list:
-                        _s = _r.get("symbol",""); _e = (_r.get("exchange","") or "").upper()
-                        _p = _yahoo_prio.get(_e, 10)
-                        if _p < _best_prio:
-                            _best_prio = _p; _best_sym = _s
-                    _cur_sel = _best_sym
+                _cur_sel = _opt_tickers[_pf_idx] if _pf_idx is not None else _opt_tickers[0]
                 st.session_state["ace_selected_ticker"] = _cur_sel
 
             _cur_idx = _opt_tickers.index(_cur_sel) if _cur_sel in _opt_tickers else 0
