@@ -1,11 +1,9 @@
 [server]
-   headless = true
+headless = true
 
-   [browser]
-   gatherUsageStats = false
+[browser]
+gatherUsageStats = false
 
-   [theme]
-   primaryColor = "#10b981"
-   backgroundColor = "#0f172a"
-   secondaryBackgroundColor = "#1e293b"
-   textColor = "#f1f5f9"
+[theme]
+base = "light"
+primaryColor = "#10b981"
