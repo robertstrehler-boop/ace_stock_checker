@@ -1153,6 +1153,7 @@ def gpt_news_summary(titles: list, api_key: str, model="gpt-4.1-mini") -> str:
         return ""
 
 @st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)
 def fetch_yahoo_metrics(ticker):
     if not ticker: return {}
     try: info = yf.Ticker(ticker).info or {}
@@ -5332,27 +5333,21 @@ with tab_analyse:
         elif ticker and not _cached_tk:
             st.session_state["ace_yf_ticker"] = ticker
 
-        # Auto-laden: nur einmal pro Ticker — bei Fehler nur per Button retry
         yf_m        = st.session_state.get("ace_yf_metrics", {})
         auto_loaded = bool(yf_m) and st.session_state.get("ace_yf_ticker") == ticker
-        _yf_failed  = st.session_state.get("ace_yf_failed") == ticker
-        _should_load = ticker and (
-            (not auto_loaded and not _yf_failed) or _manual_reload
-        )
-        if _should_load:
-            with st.spinner("Lade Fundamentaldaten…"):
+
+        if _manual_reload and ticker:
+            with st.spinner("Lade von Yahoo…"):
                 _fetched     = fetch_yahoo_metrics(ticker)
                 _fetched_ext = fetch_extended_metrics(ticker)
             if _fetched:
                 st.session_state["ace_yf_metrics"]  = _fetched
                 st.session_state["ace_ext_metrics"] = _fetched_ext
                 st.session_state["ace_yf_ticker"]   = ticker
-                st.session_state.pop("ace_yf_failed", None)
                 yf_m        = _fetched
                 auto_loaded = True
             else:
-                st.session_state["ace_yf_failed"] = ticker  # kein Auto-Retry
-                st.caption("Keine Fundamentaldaten verfügbar — Werte manuell eintragen oder 'Kennzahlen laden' erneut versuchen.")
+                st.warning("Yahoo liefert keine Fundamentaldaten für diesen Ticker. Bitte erneut versuchen.")
 
         if auto_loaded:
             cur = yf_m.get("currency", "")
