@@ -723,28 +723,27 @@ def enrich_position(pos):
 
 def parse_tr_csv_for_costbasis(csv_bytes: bytes) -> dict:
     """
-    Parst den TR Steuerübersicht-CSV-Export und berechnet die Kostenbasis pro ISIN.
+    Parst den TR Transaktionsexport-CSV und berechnet den echten VWAP-Kaufkurs pro ISIN.
 
-    Algorithmus — Running-Cost-Tracker (chronologisch):
-    ─────────────────────────────────────────────────────
-    1. Sortiere alle Transaktionen je ISIN nach Datum (älteste zuerst).
-    2. BUY:  running_cost += abs(Total)   [pre-fee Betrag, direkte Kaufsumme]
-    3. SELL: cost_sold = abs(Summe) − Gewinn/Verlust   (Erlös − Profit = Einkaufswert der
-             verkauften Stücke).  Falls G/V leer (z.B. Crypto): cost_sold = abs(Summe).
-             running_cost = max(0, running_cost − cost_sold)
-    4. Ergebnis: invested = running_cost  →  Kostenbasis der aktuell gehaltenen Position.
+    Format erkannt an Spalten: datetime, symbol, shares, price, type
+    ─────────────────────────────────────────────────────────────────
+    • symbol  = ISIN (für Aktien/ETFs direkt nutzbar)
+    • shares  = Stückzahl (positiv bei BUY, negativ bei SELL)
+    • price   = Kurs pro Stück in EUR (bereits in EUR, da currency=EUR)
+    • type    = BUY | SELL (+ DIVIDEND, INTEREST_PAYMENT etc. → ignoriert)
 
-    Warum nicht einfach Σ(BUYs)?
-    Beispiel Take-Two: 3 Käufe (50+100+15=165 EUR) + 2 Verkäufe der ersten beiden Positionen.
-    Σ(BUYs)/pdf_shares = 1944 € — völlig falsch.
-    Running-Cost → nach Closes = 0, letzter Kauf = 15 EUR → 15/0.0844 ≈ 177 EUR/Stk ✓
+    VWAP-Algorithmus (Average-Cost-Methode):
+    ─────────────────────────────────────────
+    BUY:  total_shares += shares;  total_cost += shares × price
+    SELL: avg_now = total_cost / total_shares
+          total_cost   -= shares_sold × avg_now
+          total_shares -= shares_sold
+          (Position auf 0 wenn shares < 1e-8)
 
-    Warum 'Total' statt 'Summe' für BUY?
-    'Total' = Kurswert (pre-fee), 'Summe' = Total + 1 € TR-Gebühr.
-    avg_price soll den echten Kaufkurs reflektieren, nicht inkl. Ordergebühr.
+    Ergebnis: avg_price = total_cost / total_shares  (korrekter Ø-Kaufkurs in EUR)
 
-    Returns: {isin: {"invested": float, "name": str, "has_sells": bool,
-                     "buy_count": int, "avg_price": None}}
+    Returns: {isin: {"invested": float, "avg_price": float|None,
+                     "name": str, "has_sells": bool, "buy_count": int}}
     """
     import io
 
@@ -768,63 +767,61 @@ def parse_tr_csv_for_costbasis(csv_bytes: bytes) -> dict:
 
     df.columns = [c.strip() for c in df.columns]
 
-    def _parse_eur(s):
-        if not s or str(s).strip() in ("", "-", "nan", "NaN"):
-            return None   # explizit None für "leer"
-        s = str(s).strip().replace("€", "").replace(" ", "").replace("\u202f", "")
-        if "," in s and "." in s:
-            s = s.replace(".", "").replace(",", ".")
-        elif "," in s:
-            s = s.replace(",", ".")
+    def _f(s):
+        """Parse float, return None on invalid/empty."""
+        if not s or str(s).strip().lower() in ("", "nan", "-", "none"):
+            return None
         try:
-            v = float(s)
-            return v if v == v else None   # NaN-Guard
+            v = float(str(s).strip())
+            return v if v == v else None
         except Exception:
             return None
 
-    # Spaltennamen normalisieren: Groß/Kleinschreibung + Whitespace tolerant
-    col_map = {}
-    for c in df.columns:
-        col_map[c.strip().lower()] = c
-    def _col(names):
+    col_map = {c.strip().lower(): c for c in df.columns}
+    def _col(*names):
         for n in names:
             if n.lower() in col_map:
                 return col_map[n.lower()]
         return None
 
-    col_tx    = _col(["transaktionen", "type", "transaction", "art"])
-    col_isin  = _col(["isin"])
-    col_name  = _col(["name", "titel", "title", "wertpapier"])
-    col_date  = _col(["datum", "date", "zeit", "time"])
-    # 'Total' = pre-fee Kurswert; 'Summe' = post-fee Gesamtbetrag
-    col_total = _col(["total"])                                    # pre-fee BUY-Betrag
-    col_summe = _col(["summe", "betrag", "amount", "gesamt"])     # post-fee (für SELL)
-    col_gl    = _col(["gewinn/verlust", "gewinn", "profit", "gain", "p/l"])  # G/V
+    # ── Format-Erkennung: Transaktionsexport hat 'symbol', 'shares', 'price' ──
+    col_sym   = _col("symbol")
+    col_sh    = _col("shares")
+    col_pr    = _col("price")
+    col_tx    = _col("type", "transaktionen", "transaction")
+    col_name  = _col("name", "titel", "wertpapier")
+    col_date  = _col("datetime", "datum", "date")
+    col_cat   = _col("category")   # nur im Transaktionsexport
 
-    if not col_tx or not col_isin:
-        return {}   # Pflichtfelder fehlen
+    is_transaktionsexport = bool(col_sym and col_sh and col_pr)
 
-    # ── Schritt 1: alle relevanten Zeilen sammeln ──────────────────────────────
+    if not is_transaktionsexport or not col_tx:
+        return {}   # Falsches Format oder Pflichtfelder fehlen
+
+    # ── Transaktionen sammeln ──────────────────────────────────────────────────
     rows_by_isin: dict = {}
     for _, row in df.iterrows():
-        tx   = str(row.get(col_tx, "")).strip().upper()
-        isin = str(row.get(col_isin, "")).strip().upper()
-        if not isin or isin in ("NAN", "") or tx not in ("BUY","SELL","KAUF","VERKAUF"):
+        tx_raw  = str(row.get(col_tx, "") or "").strip().upper()
+        # Nur echte Handelstransaktionen (BUY/SELL), keine Dividenden etc.
+        if tx_raw not in ("BUY", "SELL"):
             continue
-        name     = str(row.get(col_name, "")).strip() if col_name else ""
-        date_str = str(row.get(col_date, "")).strip() if col_date else ""
-        is_buy   = tx in ("BUY", "KAUF")
+        # Nur TRADING-Kategorie (falls Spalte vorhanden)
+        if col_cat:
+            cat = str(row.get(col_cat, "") or "").strip().upper()
+            if cat and cat != "TRADING":
+                continue
 
-        # pre-fee Betrag (Total) → Kaufkurs-Basis; Fallback auf Summe
-        total_val = _parse_eur(str(row.get(col_total, "") or "")) if col_total else None
-        summe_val = _parse_eur(str(row.get(col_summe, "") or "")) if col_summe else None
-        gl_raw    = str(row.get(col_gl, "") or "") if col_gl else ""
-        gl_val    = _parse_eur(gl_raw)
-        has_gl    = (gl_val is not None) and gl_raw.strip() not in ("", "nan", "NaN")
+        isin = str(row.get(col_sym, "") or "").strip().upper()
+        if not isin or isin in ("NAN", ""):
+            continue
 
-        # bevorzuge 'Total' (pre-fee) für den effektiven Kursbetrag
-        amount = abs(total_val) if total_val is not None else (abs(summe_val) if summe_val is not None else 0.0)
-        summe_abs = abs(summe_val) if summe_val is not None else amount
+        name     = str(row.get(col_name, "") or "").strip() if col_name else ""
+        date_str = str(row.get(col_date, "") or "").strip() if col_date else ""
+        shares   = _f(row.get(col_sh))
+        price    = _f(row.get(col_pr))
+
+        if shares is None or price is None or price <= 0:
+            continue
 
         if isin not in rows_by_isin:
             rows_by_isin[isin] = {"name": name, "rows": []}
@@ -832,48 +829,56 @@ def parse_tr_csv_for_costbasis(csv_bytes: bytes) -> dict:
             rows_by_isin[isin]["name"] = name
 
         rows_by_isin[isin]["rows"].append({
-            "date":    date_str,
-            "is_buy":  is_buy,
-            "amount":  amount,     # pre-fee → für BUY-Kostenbasis
-            "summe":   summe_abs,  # post-fee → für SELL-Kostenbasis-Berechnung
-            "gl":      gl_val or 0.0,
-            "has_gl":  has_gl,
+            "date":   date_str,
+            "shares": shares,   # positiv=BUY, negativ=SELL
+            "price":  price,
         })
 
-    # ── Schritt 2: Running-Cost-Tracker je ISIN ───────────────────────────────
+    # ── VWAP je ISIN berechnen ─────────────────────────────────────────────────
     result = {}
     for isin, data in rows_by_isin.items():
-        # Chronologisch sortieren (ISO-Datum → lexikografisch korrekt)
         data["rows"].sort(key=lambda r: r["date"])
 
-        running_cost = 0.0
+        total_shares = 0.0
+        total_cost   = 0.0
         buy_count    = 0
         has_sells    = False
 
         for r in data["rows"]:
-            if r["is_buy"]:
-                running_cost += r["amount"]
+            sh = r["shares"]
+            pr = r["price"]
+            if sh > 0:                          # BUY
+                total_shares += sh
+                total_cost   += sh * pr
                 buy_count    += 1
-            else:
+            elif sh < 0:                        # SELL (negative shares)
                 has_sells = True
-                if r["has_gl"]:
-                    # Kostenbasis der verkauften Stücke = Erlös (Summe) - Gewinn/Verlust
-                    # Bsp.: Summe=89.08, G/V=-11.92 → Einstandswert=89.08−(−11.92)=101.00
-                    cost_sold = r["summe"] - r["gl"]
-                else:
-                    # G/V unbekannt (Crypto etc.) → Erlös als Kostenbasis annehmen
-                    cost_sold = r["summe"]
-                running_cost = max(0.0, running_cost - cost_sold)
+                sh_sold = abs(sh)
+                if total_shares > 1e-8:
+                    avg_now       = total_cost / total_shares
+                    total_cost   -= sh_sold * avg_now
+                    total_shares -= sh_sold
+                # Position vollständig geschlossen?
+                if total_shares < 1e-8:
+                    total_shares = 0.0
+                    total_cost   = 0.0
+
+        if total_shares > 1e-8:
+            avg_price = round(total_cost / total_shares, 4)
+            invested  = round(total_cost, 4)
+        else:
+            avg_price = None
+            invested  = 0.0
 
         result[isin] = {
-            "invested":   round(running_cost, 4),
-            "name":       data["name"],
-            "has_sells":  has_sells,
-            "buy_count":  buy_count,
-            "avg_price":  None,   # wird beim Speichern aus invested/pdf_shares berechnet
+            "invested":  invested,
+            "avg_price": avg_price,
+            "name":      data["name"],
+            "has_sells": has_sells,
+            "buy_count": buy_count,
         }
 
-    return {k: v for k, v in result.items() if v["invested"] > 0.01}
+    return {k: v for k, v in result.items() if v.get("avg_price") is not None}
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
@@ -8190,18 +8195,11 @@ with tab_portfolio:
                 _ptk   = st.session_state.get("pf_pdf_tickers", {})
                 _pcsv  = st.session_state.get("pf_pdf_csv_inv", {})
 
-                _n_csv_match = sum(1 for p in _ppos if _pcsv.get(p["isin"]))
-                _csv_badge = (
-                    f'<span style="color:#00C864;"><b>{_n_csv_match} Kaufkurse</b>'
-                    f' aus CSV berechnet</span>'
-                    if _n_csv_match else
-                    '<span style="color:#F5A623;">↓ Kaufkurs fehlt — '
-                    'Steuerübersicht-CSV unten hochladen</span>'
-                )
                 st.markdown(
                     f'<div class="ace-card" style="margin-bottom:0.6rem;">'
                     f'<b>{len(_ppos)} Positionen</b> aus PDF erkannt · '
-                    f'{_csv_badge}</div>', unsafe_allow_html=True)
+                    f'<span style="color:#f59e0b;">Kaufkurs nach Import manuell eintragen</span>'
+                    f'</div>', unsafe_allow_html=True)
 
                 # Bulk-Zuweisung mit Display-Namen + Kategorie-Hinweis
                 _pf0_disp = pf_display_name(port_data, PORTFOLIO_NAMES[0])
@@ -8241,20 +8239,19 @@ with tab_portfolio:
 
                 _pcsv_full = st.session_state.get("pf_pdf_csv_full", {})
                 for _pp6 in _ppos:
-                    _pi6  = _pp6["isin"]
-                    _at6  = _ptk.get(_pi6, "")
-                    _inv6 = _pcsv.get(_pi6)
-                    _sh6  = _pp6.get("shares") or 0
-                    # VWAP direkt aus CSV bevorzugen — korrekt auch bei mehreren Transaktionen
-                    _csv6_data = _pcsv_full.get(_pi6, {})
-                    _avg6 = (_csv6_data.get("avg_price")
-                             or (round(_inv6 / _sh6, 2) if (_inv6 and _sh6 > 0) else None))
+                    _pi6      = _pp6["isin"]
+                    _at6      = _ptk.get(_pi6, "")
+                    _csv6     = _pcsv_full.get(_pi6, {})
+                    _avg6     = _csv6.get("avg_price")
 
                     _pc1,_pc2,_pc3,_pc4,_pc5,_pc6 = st.columns([2.5,1.1,1.1,1.1,1.6,1.9])
                     with _pc1:
-                        _avg_badge = (f' · <span style="color:#00C864;font-size:0.76rem;">'
-                                      f'Ø {_avg6:.2f} €</span>' if _avg6 else
-                                      '<span style="color:#888;font-size:0.76rem;"> · kein Kaufkurs</span>')
+                        if _avg6:
+                            _avg_badge = (f' · <span style="color:#10b981;font-size:0.76rem;">'
+                                          f'Ø {_avg6:.2f} €</span>')
+                        else:
+                            _avg_badge = (' · <span style="color:#f59e0b;font-size:0.76rem;">'
+                                          'kein Kurs — CSV hochladen</span>')
                         st.markdown(
                             f'<div style="font-size:0.87rem;padding:0.2rem 0;">'
                             f'<b>{_pp6["name"][:40]}</b>{_avg_badge}<br>'
@@ -8296,44 +8293,59 @@ with tab_portfolio:
                 st.markdown("<div style='height:0.6rem'></div>", unsafe_allow_html=True)
 
                 # Optionaler CSV-Upload für Kaufkurs
-                if _n_csv_match < len(_ppos):
-                    with st.expander("Kaufkurse aus Steuerübersicht ergänzen (optional)",
-                                     expanded=(_n_csv_match == 0)):
-                        st.markdown(
-                            '<div class="ace-hint">Lade zusätzlich die '
-                            'Steuerübersicht-CSV hoch, um den Ø Kaufkurs aus '
-                            'echten Transaktionsdaten zu berechnen.</div>',
-                            unsafe_allow_html=True)
-                        _csv_up3 = st.file_uploader("CSV hochladen", type=["csv"],
-                                                     key="pf_csv_for_pdf")
-                        if _csv_up3 and st.button("CSV einlesen",
-                                                   key="btn_csv_for_pdf"):
-                            with st.spinner("Lese CSV…"):
-                                _csv3 = parse_tr_csv_for_costbasis(_csv_up3.read())
-                            if _csv3:
-                                # Vollständige CSV-Daten speichern (inkl. VWAP avg_price)
-                                st.session_state["pf_pdf_csv_inv"] = {
-                                    isin: d["invested"] for isin, d in _csv3.items()}
-                                st.session_state["pf_pdf_csv_full"] = _csv3
-                                st.rerun()
+                # ── Transaktionsexport-CSV für Kaufkurse ──────────────────────
+                _pcsv_full = st.session_state.get("pf_pdf_csv_full", {})
+                _n_with_avg = sum(1 for p in _ppos
+                                  if _pcsv_full.get(p["isin"], {}).get("avg_price"))
+                with st.expander(
+                    f"Kaufkurse aus Transaktionsexport laden"
+                    + (f" · ✓ {_n_with_avg} berechnet" if _n_with_avg else ""),
+                    expanded=(_n_with_avg == 0)):
+                    st.markdown(
+                        '<div class="ace-hint">'
+                        'Trade Republic → Konto → Dokumente → <b>Transaktionsexport</b> '
+                        '(CSV) herunterladen und hier hochladen. '
+                        'Kaufkurse werden automatisch per VWAP berechnet.</div>',
+                        unsafe_allow_html=True)
+                    _csv_up3 = st.file_uploader(
+                        "Transaktionsexport.csv",
+                        type=["csv"],
+                        key="pf_csv_for_pdf",
+                        label_visibility="collapsed")
+                    if _csv_up3 and st.button("Kaufkurse berechnen",
+                                               key="btn_csv_for_pdf",
+                                               type="primary"):
+                        with st.spinner("Berechne VWAP-Kaufkurse…"):
+                            _csv3 = parse_tr_csv_for_costbasis(_csv_up3.read())
+                        if _csv3:
+                            st.session_state["pf_pdf_csv_inv"]  = {
+                                isin: d["invested"] for isin, d in _csv3.items()}
+                            st.session_state["pf_pdf_csv_full"] = _csv3
+                            _hit = sum(1 for p in _ppos
+                                       if _csv3.get(p["isin"], {}).get("avg_price"))
+                            st.success(f"✓ {_hit} von {len(_ppos)} Kaufkurse berechnet.")
+                            st.rerun()
+                        else:
+                            st.error("Format nicht erkannt — bitte den "
+                                     "Transaktionsexport (nicht die Steuerübersicht) hochladen.")
 
                 _pv1, _pv2, _ = st.columns([2.5, 1.5, 6])
                 with _pv1:
                     if st.button("Portfolio einrichten", key="btn_pdf_save",
                                  use_container_width=True, type="primary"):
                         _pf_fr2 = load_portfolio()
-                        _pcsv_full7 = st.session_state.get("pf_pdf_csv_full", {})
                         _padd = 0
+                        _pcsv_full7 = st.session_state.get("pf_pdf_csv_full", {})
+                        _n_avg7 = 0
                         for _pp7 in _ppos:
                             _pi7  = _pp7["isin"]
                             _tk7  = _pdf_upd_tickers.get(_pi7, "")
                             _pn7  = _pdf_upd_assigns.get(_pi7, PORTFOLIO_NAMES[0])
-                            _inv7 = _pcsv.get(_pi7)
-                            _sh7  = _pp7.get("shares") or 0
-                            # VWAP avg_price aus CSV bevorzugen (korrekt bei mehreren Käufen)
+                            # avg_price aus Transaktionsexport-VWAP (falls geladen)
                             _csv7 = _pcsv_full7.get(_pi7, {})
-                            _avg7 = (_csv7.get("avg_price")
-                                     or (round(_inv7 / _sh7, 4) if (_inv7 and _sh7 > 0) else None))
+                            _avg7 = _csv7.get("avg_price")   # None wenn kein CSV geladen
+                            if _avg7:
+                                _n_avg7 += 1
                             # Duplikat-Prüfung
                             _ex7 = any(
                                 p.get("isin") == _pi7 or
@@ -8360,10 +8372,10 @@ with tab_portfolio:
                                     "pf_pdf_csv_inv","pf_pdf_csv_full","pf_pdf_assigns"]:
                             st.session_state.pop(_k7, None)
                         st.session_state["pf_show_setup"] = False
-                        st.success(
-                            f"{_padd} Positionen eingerichtet"
-                            + (f" · {_n_csv_match} Kaufkurse berechnet" if _n_csv_match else "")
-                            + ".")
+                        _avg_msg = (f" · {_n_avg7} Kaufkurse aus Transaktionsexport"
+                                    if _n_avg7 else
+                                    " · Kaufkurse über '✎ Position bearbeiten' eintragen")
+                        st.success(f"{_padd} Positionen importiert{_avg_msg}.")
                         st.rerun()
                 with _pv2:
                     if st.button("Abbrechen", key="btn_pdf_cancel",
@@ -8890,125 +8902,79 @@ with tab_portfolio:
             # ── Onboarding-Card nach Wizard ────────────────────────────────
             st.markdown("""
 <div style="
-    background: linear-gradient(135deg, #0f1923 0%, #141e2e 60%, #0d1f3c 100%);
-    border: 1px solid rgba(64,180,255,0.18);
+    background: var(--secondary-background-color);
+    border: 1px solid rgba(128,128,128,0.18);
     border-radius: 16px;
-    padding: 2.4rem 2.4rem 2rem 2.4rem;
+    padding: 2rem 2rem 1.6rem 2rem;
     margin: 0.6rem 0 1.2rem 0;
-    box-shadow: 0 4px 32px rgba(0,0,0,0.35);
-    position: relative;
-    overflow: hidden;
 ">
-  <!-- Decorative glow -->
-  <div style="
-      position:absolute; top:-60px; right:-60px;
-      width:260px; height:260px;
-      background: radial-gradient(circle, rgba(64,180,255,0.10) 0%, transparent 70%);
-      pointer-events:none;
-  "></div>
-
   <!-- Headline -->
-  <div style="margin-bottom:1.6rem;">
-    <div style="font-size:1.05rem; color:#40b4ff; font-weight:600; letter-spacing:0.04em; margin-bottom:0.35rem;">
+  <div style="margin-bottom:1.4rem;">
+    <div style="font-size:0.82rem; color:#10b981; font-weight:700;
+                letter-spacing:0.08em; text-transform:uppercase; margin-bottom:0.3rem;">
       ✓ Alles eingerichtet
     </div>
-    <div style="font-size:1.65rem; font-weight:700; color:#eaf2ff; line-height:1.25;">
-      So startest du mit Velox
+    <div style="font-size:1.45rem; font-weight:700;
+                color:var(--text-color); line-height:1.25;">
+      So legst du deine erste Position an
     </div>
-    <div style="font-size:0.93rem; color:#7a9bc0; margin-top:0.5rem; max-width:540px;">
-      Dein Ziel und dein Portfolio sind gespeichert. In drei Schritten legst du deine erste Position an.
+    <div style="font-size:0.9rem; opacity:0.6; margin-top:0.4rem;">
+      Dein Ziel und dein Portfolio sind gespeichert — in drei Schritten geht's los.
     </div>
   </div>
 
   <!-- 3-Step Flow -->
-  <div style="
-      display: flex;
-      align-items: stretch;
-      gap: 0;
-      margin-bottom: 2rem;
-      flex-wrap: wrap;
-  ">
-    <!-- Step 1 -->
-    <div style="
-        flex: 1 1 200px;
-        background: rgba(64,180,255,0.07);
-        border: 1px solid rgba(64,180,255,0.18);
-        border-radius: 12px 0 0 12px;
-        padding: 1.2rem 1.3rem;
-        position: relative;
-    ">
-      <div style="font-size:1.7rem; margin-bottom:0.5rem;">🔍</div>
-      <div style="font-size:0.78rem; color:#40b4ff; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:0.3rem;">Schritt 1</div>
-      <div style="font-size:1.0rem; font-weight:700; color:#eaf2ff; margin-bottom:0.4rem;">Aktie analysieren</div>
-      <div style="font-size:0.84rem; color:#7a9bc0; line-height:1.45;">
-        Wechsle zur <strong style="color:#a0c8e8;">Analyse</strong> oder zum <strong style="color:#a0c8e8;">Velox Radar</strong> und entdecke interessante Aktien. Bewerte Qualität, Wachstum und Bewertung in Sekunden.
-      </div>
-      <!-- Arrow -->
-      <div style="
-          display:none;
-          position:absolute; right:-18px; top:50%; transform:translateY(-50%);
-          z-index:2; font-size:1.3rem; color:#40b4ff;
-      ">▶</div>
-    </div>
+  <div style="display:flex; gap:0; margin-bottom:1.4rem; flex-wrap:wrap;">
 
-    <!-- Connector -->
-    <div style="
-        display:flex; align-items:center; justify-content:center;
-        width:36px; flex-shrink:0;
-        background: rgba(64,180,255,0.04);
-        border-top: 1px solid rgba(64,180,255,0.12);
-        border-bottom: 1px solid rgba(64,180,255,0.12);
-        font-size:1.1rem; color:#40b4ff;
-    ">→</div>
-
-    <!-- Step 2 -->
-    <div style="
-        flex: 1 1 200px;
-        background: rgba(64,180,255,0.05);
-        border: 1px solid rgba(64,180,255,0.12);
-        border-left: none; border-right: none;
-        padding: 1.2rem 1.3rem;
-    ">
-      <div style="font-size:1.7rem; margin-bottom:0.5rem;">⭐</div>
-      <div style="font-size:0.78rem; color:#40b4ff; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:0.3rem;">Schritt 2</div>
-      <div style="font-size:1.0rem; font-weight:700; color:#eaf2ff; margin-bottom:0.4rem;">Watchlist anlegen</div>
-      <div style="font-size:0.84rem; color:#7a9bc0; line-height:1.45;">
-        Füge interessante Aktien zur <strong style="color:#a0c8e8;">Watchlist</strong> hinzu. Behalte mehrere Kandidaten im Blick, bevor du kaufst.
+    <div style="flex:1 1 180px;
+                background:rgba(16,185,129,0.07);
+                border:1px solid rgba(16,185,129,0.2);
+                border-radius:10px 0 0 10px; padding:1rem 1.1rem;">
+      <div style="font-size:0.72rem; color:#10b981; font-weight:700;
+                  letter-spacing:0.1em; text-transform:uppercase; margin-bottom:0.25rem;">Schritt 1</div>
+      <div style="font-size:0.95rem; font-weight:700;
+                  color:var(--text-color); margin-bottom:0.3rem;">Aktie analysieren</div>
+      <div style="font-size:0.82rem; opacity:0.65; line-height:1.45;">
+        Wechsle zur <b>Analyse</b> oder zum <b>Velox Radar</b> und entdecke interessante Aktien.
       </div>
     </div>
 
-    <!-- Connector -->
-    <div style="
-        display:flex; align-items:center; justify-content:center;
-        width:36px; flex-shrink:0;
-        background: rgba(64,180,255,0.04);
-        border-top: 1px solid rgba(64,180,255,0.12);
-        border-bottom: 1px solid rgba(64,180,255,0.12);
-        font-size:1.1rem; color:#40b4ff;
-    ">→</div>
+    <div style="display:flex; align-items:center; justify-content:center;
+                width:30px; flex-shrink:0; opacity:0.35; font-size:1rem;">→</div>
 
-    <!-- Step 3 -->
-    <div style="
-        flex: 1 1 200px;
-        background: rgba(64,180,255,0.07);
-        border: 1px solid rgba(64,180,255,0.18);
-        border-radius: 0 12px 12px 0;
-        padding: 1.2rem 1.3rem;
-    ">
-      <div style="font-size:1.7rem; margin-bottom:0.5rem;">📈</div>
-      <div style="font-size:0.78rem; color:#40b4ff; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:0.3rem;">Schritt 3</div>
-      <div style="font-size:1.0rem; font-weight:700; color:#eaf2ff; margin-bottom:0.4rem;">Ins Portfolio buchen</div>
-      <div style="font-size:0.84rem; color:#7a9bc0; line-height:1.45;">
-        Klicke in der <strong style="color:#a0c8e8;">Watchlist</strong> auf „Ins Portfolio" und trage Kaufkurs und Stückzahl ein. Fertig — dein Portfolio trackt ab jetzt automatisch.
+    <div style="flex:1 1 180px;
+                background:rgba(128,128,128,0.05);
+                border:1px solid rgba(128,128,128,0.14);
+                border-left:none; border-right:none; padding:1rem 1.1rem;">
+      <div style="font-size:0.72rem; color:#10b981; font-weight:700;
+                  letter-spacing:0.1em; text-transform:uppercase; margin-bottom:0.25rem;">Schritt 2</div>
+      <div style="font-size:0.95rem; font-weight:700;
+                  color:var(--text-color); margin-bottom:0.3rem;">Watchlist anlegen</div>
+      <div style="font-size:0.82rem; opacity:0.65; line-height:1.45;">
+        Füge interessante Aktien zur <b>Watchlist</b> hinzu und behalte Kandidaten im Blick.
+      </div>
+    </div>
+
+    <div style="display:flex; align-items:center; justify-content:center;
+                width:30px; flex-shrink:0; opacity:0.35; font-size:1rem;">→</div>
+
+    <div style="flex:1 1 180px;
+                background:rgba(16,185,129,0.07);
+                border:1px solid rgba(16,185,129,0.2);
+                border-radius:0 10px 10px 0; padding:1rem 1.1rem;">
+      <div style="font-size:0.72rem; color:#10b981; font-weight:700;
+                  letter-spacing:0.1em; text-transform:uppercase; margin-bottom:0.25rem;">Schritt 3</div>
+      <div style="font-size:0.95rem; font-weight:700;
+                  color:var(--text-color); margin-bottom:0.3rem;">Ins Portfolio buchen</div>
+      <div style="font-size:0.82rem; opacity:0.65; line-height:1.45;">
+        Klicke in der <b>Watchlist</b> auf „Ins Portfolio" — fertig, ab jetzt automatisches Tracking.
       </div>
     </div>
   </div>
 
-  <!-- CTA-Hinweis -->
-  <div style="font-size:0.82rem; color:#4a6a88; text-align:center; margin-bottom:0; font-style:italic;">
-    Tipp: Du kannst jederzeit auch direkt eine Aktie über "Position hinzufügen" manuell eintragen.
+  <div style="font-size:0.79rem; opacity:0.4; text-align:center; font-style:italic;">
+    Du kannst auch direkt über „Position hinzufügen" manuell eintragen.
   </div>
-
 </div>
 """, unsafe_allow_html=True)
 
