@@ -955,14 +955,16 @@ def fetch_yahoo_profile(ticker):
     try:
         info = yf.Ticker(ticker).info or {}
     except Exception as e: out["errors"].append(str(e)); return out
+    _qt = (info.get("quoteType") or "").upper()
+    _is_etf = _qt in ("ETF", "MUTUALFUND", "FUND")
     p = {"name": info.get("longName") or info.get("shortName") or ticker,
          "sector": info.get("sector") or "", "industry": info.get("industry") or "",
          "summary": info.get("longBusinessSummary") or "",
          "country": info.get("country") or "", "currency": info.get("currency") or "",
-         "exchange": info.get("exchange") or ""}
+         "exchange": info.get("exchange") or "", "is_etf": _is_etf, "quote_type": _qt}
     s = sum([bool(p["sector"]), bool(p["industry"]), len(p["summary"]) >= 80])
-    out["ok"] = s >= 2; out["profile"] = p
-    if not out["ok"] and not out["errors"]:
+    out["ok"] = s >= 2; out["profile"] = p; out["is_etf"] = _is_etf
+    if not out["ok"] and not out["errors"] and not _is_etf:
         out["errors"].append("Dünnes Profil → Story wird nicht bewertet.")
     return out
 
@@ -5215,6 +5217,60 @@ with tab_analyse:
                     + '</div>',
                     unsafe_allow_html=True)
 
+        # ── ETF-Erkennung ─────────────────────────────────────────────────────
+        _is_etf_ticker = ypb.get("is_etf", False)
+        if not _is_etf_ticker and ticker:
+            # Fallback: quoteType direkt prüfen falls ypb leer
+            _qt_check = (ypb.get("profile", {}).get("quote_type") or "").upper()
+            _is_etf_ticker = _qt_check in ("ETF", "MUTUALFUND", "FUND")
+
+        if _is_etf_ticker:
+            _etf_name = (ypb.get("profile", {}).get("name") or ticker)
+            st.markdown(
+                f'<div style="background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.2);'
+                f'border-radius:12px;padding:0.7rem 1.1rem;margin:0.5rem 0 0.8rem 0;">'
+                f'<span style="font-size:0.8rem;color:#60a5fa;">ETF · Fondsanalyse</span>'
+                f'</div>', unsafe_allow_html=True)
+
+            # ETF-Kennzahlen von Yahoo holen
+            try:
+                _etf_info = yf.Ticker(ticker).info or {}
+                _ter      = _etf_info.get("annualReportExpenseRatio") or _etf_info.get("expenseRatio")
+                _aum      = _etf_info.get("totalAssets")
+                _yld      = _etf_info.get("yield") or _etf_info.get("dividendYield")
+                _ytd      = _etf_info.get("ytdReturn")
+                _3y       = _etf_info.get("threeYearAverageReturn")
+                _5y       = _etf_info.get("fiveYearAverageReturn")
+                _cat      = _etf_info.get("category") or ""
+                _family   = _etf_info.get("fundFamily") or ""
+
+                def _pct(v): return f"{v*100:.2f} %" if v is not None else "—"
+                def _mrd(v): return f"{v/1e9:.1f} Mrd €" if v is not None else "—"
+
+                _etf_cols = st.columns(3)
+                _etf_data = [
+                    ("TER (Kosten/Jahr)", _pct(_ter)),
+                    ("Fondsvolumen",       _mrd(_aum)),
+                    ("Ausschüttungsrendite", _pct(_yld)),
+                    ("Performance YTD",   _pct(_ytd)),
+                    ("3J Ø p.a.",         _pct(_3y)),
+                    ("5J Ø p.a.",         _pct(_5y)),
+                ]
+                for i, (label, val) in enumerate(_etf_data):
+                    with _etf_cols[i % 3]:
+                        st.markdown(
+                            f'<div style="background:var(--secondary-background-color);'
+                            f'border-radius:10px;padding:0.65rem 0.8rem;margin-bottom:0.5rem;">'
+                            f'<div style="font-size:0.65rem;opacity:0.5;text-transform:uppercase;'
+                            f'letter-spacing:0.08em;">{label}</div>'
+                            f'<div style="font-size:1.1rem;font-weight:600;color:var(--text-color);'
+                            f'margin-top:0.15rem;">{val}</div></div>',
+                            unsafe_allow_html=True)
+                if _cat or _family:
+                    st.caption(f"{_family}{' · ' if _family and _cat else ''}{_cat}")
+            except Exception:
+                st.caption("ETF-Kennzahlen konnten nicht geladen werden.")
+
         # ── Firmen-Briefing (Beschreibung + Nachrichtenlage) ─────────────────
         if ticker and ypb.get("ok"):
             _prof    = ypb.get("profile", {})
@@ -5302,11 +5358,14 @@ with tab_analyse:
                 position_value = st.number_input("Positionswert (€)", min_value=0.0, value=0.0, step=50.0)
 
         st.divider()
-        _fhc, _fac = st.columns([0.6, 0.4])
-        with _fhc:
-            st.markdown('<div class="ace-section">Fundamentaldaten</div>', unsafe_allow_html=True)
-        with _fac:
-            _manual_reload = st.button("Kennzahlen laden", key="btn_auto", use_container_width=True)
+        if not _is_etf_ticker:
+            _fhc, _fac = st.columns([0.6, 0.4])
+            with _fhc:
+                st.markdown('<div class="ace-section">Fundamentaldaten</div>', unsafe_allow_html=True)
+            with _fac:
+                _manual_reload = st.button("Kennzahlen laden", key="btn_auto", use_container_width=True)
+        else:
+            _manual_reload = False
 
         # Persistente Cache: nur cleanen wenn Ticker wirklich geändert
         _cached_tk = st.session_state.get("ace_yf_ticker", "")
@@ -5499,9 +5558,10 @@ with tab_analyse:
     # ─── RIGHT: Analysis ──────────────────────────────────────────────────────
     with right:
 
-        # ── Fundament & Business ───────────────────────────────────────────────
-        st.markdown('<div class="ace-section">Fundament &amp; Business</div>', unsafe_allow_html=True)
-        run_fund = st.button("▶ Starten", key="btn_fund", use_container_width=True)
+        # ── Fundament & Business (nur für Aktien) ─────────────────────────────
+        if not _is_etf_ticker:
+            st.markdown('<div class="ace-section">Fundament &amp; Business</div>', unsafe_allow_html=True)
+        run_fund = st.button("▶ Starten", key="btn_fund", use_container_width=True) if not _is_etf_ticker else False
         # Auto-Run wenn aus Velox Radar kommend
         if st.session_state.get("auto_run_fund") and not run_fund:
             run_fund = True
