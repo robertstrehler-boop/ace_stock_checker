@@ -89,8 +89,11 @@ def to_float(x):
 def safe_float(x):
     try:
         if x is None: return None
-        if isinstance(x, float) and np.isnan(x): return None
-        return float(x)
+        if isinstance(x, str) and x.strip().lower() in ("nan", "inf", "-inf", ""): return None
+        v = float(x)
+        if v != v: return None   # NaN-Check: NaN ist das einzige float, das ungleich sich selbst ist
+        if v == float("inf") or v == float("-inf"): return None
+        return v
     except Exception: return None
 
 def clip_score(x): return float(np.clip(x, 1, 10))
@@ -569,6 +572,11 @@ def calc_position_derived(pos: dict) -> dict:
 
     pl  = round(cv - inv, 2)
     pct = round(pl / inv * 100, 2) if inv > 0 else 0
+    # Nan-Guard: Sicherheitsnetz gegen kaputte Eingabedaten
+    if inv != inv: inv = 0
+    if cv  != cv:  cv  = 0
+    if pl  != pl:  pl  = 0
+    if pct != pct: pct = 0
     return {"invested": inv, "current_value": cv, "pl_abs": pl, "pl_pct": pct}
 
 def refresh_portfolio_prices(port_data: dict) -> dict:
@@ -759,24 +767,48 @@ def parse_tr_csv_for_costbasis(csv_bytes: bytes) -> dict:
         except Exception:
             return 0.0
 
+    # Spaltennamen normalisieren: Groß/Kleinschreibung und Whitespace tolerant
+    col_map = {}
+    for c in df.columns:
+        col_map[c.strip().lower()] = c
+    def _col(names):
+        """Gibt den ersten gefundenen Spaltenname zurück."""
+        for n in names:
+            if n.lower() in col_map:
+                return col_map[n.lower()]
+        return None
+
+    col_tx   = _col(["transaktionen", "type", "transaction", "art"])
+    col_isin = _col(["isin"])
+    col_name = _col(["name", "titel", "title", "wertpapier"])
+    col_sum  = _col(["summe", "total", "betrag", "amount", "gesamt"])
+
+    if not col_tx or not col_isin:
+        return {}   # Pflichtfelder fehlen
+
     result = {}
     for _, row in df.iterrows():
-        tx   = str(row.get("Transaktionen", "")).strip().upper()
-        isin = str(row.get("ISIN", "")).strip()
-        name = str(row.get("Name", "")).strip()
-        if not isin or isin.upper() in ("NAN", "") or tx not in ("BUY", "SELL"):
+        tx   = str(row.get(col_tx, "")).strip().upper()
+        isin = str(row.get(col_isin, "")).strip().upper()
+        name = str(row.get(col_name, "")) .strip() if col_name else ""
+        if not isin or isin in ("NAN", "") or tx not in ("BUY", "SELL", "KAUF", "VERKAUF"):
             continue
+        # BUY / KAUF vereinheitlichen
+        is_buy  = tx in ("BUY",  "KAUF")
+        is_sell = tx in ("SELL", "VERKAUF")
         # Summe = realer Geldfluss inkl. Gebühren; Total ohne Gebühren
-        raw = row.get("Summe") or row.get("Total") or "0"
+        raw = row.get(col_sum, "0") if col_sum else "0"
         summe = _parse_eur(raw)
 
         if isin not in result:
             result[isin] = {"invested": 0.0, "name": name,
                              "has_sells": False, "buy_count": 0}
-        if tx == "BUY":
+        if name and not result[isin]["name"]:
+            result[isin]["name"] = name
+        if is_buy:
             result[isin]["invested"]  += abs(summe)   # BUY-Summe ist negativ → abs
             result[isin]["buy_count"] += 1
-        elif tx == "SELL":
+        elif is_sell:
             result[isin]["invested"]   = max(0.0, result[isin]["invested"] - abs(summe))
             result[isin]["has_sells"]  = True
 
@@ -3440,7 +3472,7 @@ def render_next_steps(steps: list, is_hc: bool = False,
                 st.session_state["_auto_switch_to_radar"] = True
                 st.rerun()
 
-    # HC: Radar-Teaser
+    # Radar-Teaser (HC und Core)
     if is_hc:
         st.markdown(
             '<div style="background:linear-gradient(135deg,'
@@ -3461,6 +3493,31 @@ def render_next_steps(steps: list, is_hc: bool = False,
             st.session_state["radar_mode_sel"]        = "KI"
             st.session_state["ki_radar_query"]        = _hc_q
             st.session_state["ki_radar_prefill"]      = _hc_q
+            st.session_state["ki_radar_result"]       = None
+            st.session_state.pop("ki_radar_input", None)
+            st.session_state["_auto_switch_to_radar"] = True
+            st.rerun()
+    else:
+        # Core Assets: Quality-Growth Radar-Teaser
+        st.markdown(
+            '<div style="background:linear-gradient(135deg,'
+            'rgba(59,130,246,0.08),rgba(59,130,246,0.03));'
+            'border:1px solid rgba(59,130,246,0.22);border-radius:12px;'
+            'padding:0.75rem 1rem;margin-top:0.6rem;">'
+            '<div style="font-size:0.6rem;font-weight:800;letter-spacing:0.18em;'
+            'text-transform:uppercase;color:#3b82f6;margin-bottom:0.25rem;">'
+            '◎ Velox Radar</div>'
+            '<div style="font-size:0.78rem;color:var(--text-color);opacity:0.6;">'
+            'Neue Quality-Growth Aktien entdecken — KI-Radar findet '
+            'starke Compounder passend zu deiner Strategie.</div>'
+            '</div>',
+            unsafe_allow_html=True)
+        if st.button("◎ Core Assets im Radar entdecken",
+                     key=f"core_radar_hint_{pname}", use_container_width=True):
+            _core_q = "Quality Growth Compounder starkes Wachstum"
+            st.session_state["radar_mode_sel"]        = "KI"
+            st.session_state["ki_radar_query"]        = _core_q
+            st.session_state["ki_radar_prefill"]      = _core_q
             st.session_state["ki_radar_result"]       = None
             st.session_state.pop("ki_radar_input", None)
             st.session_state["_auto_switch_to_radar"] = True
@@ -3863,7 +3920,7 @@ def build_depot_fit(ticker, mode, profile, total_score, story_info, level="pro")
 # ══════════════════════════════════════════════════════════════════════════════
 st.markdown("""<style>
 /* ═══════════════════════════════════════════════════════════════
-   VELOX — Design System v9.0
+   VELOX — Design System v9.1
    Alle Farben via Streamlit CSS-Variablen: theme-agnostisch.
    Typografie-Skala:
      xs  : 0.72rem  (labels, badges)
@@ -4348,6 +4405,32 @@ button.vx-ins-portfolio:active { transform: scale(0.98) !important; }
 .ace-hint      { font-size:0.84rem; margin-top:0.2rem; line-height:1.55; color:var(--text-color); opacity:0.65; }
 .ace-green { color:#00C864; } .ace-orange { color:#FFA500; } .ace-red { color:#FF4444; }
 
+/* ── Mobile ── */
+@media (max-width: 640px) {
+    /* Portfolio: Positions-Kacheln vollbreit */
+    section[data-testid="stMain"] div[data-testid="column"] {
+        min-width: 100% !important;
+        flex: 0 0 100% !important;
+    }
+    /* Einheitliche Schriftgrösse für inline HTML */
+    .main .block-container { font-size: 0.9rem; }
+    /* Buttons nicht zu klein */
+    button[data-testid="baseButton-secondary"],
+    button[data-testid="baseButton-primary"] {
+        font-size: 0.78rem !important;
+        min-height: 2.4rem !important;
+    }
+    /* "Position bearbeiten" Button: kein negativer gap auf Mobile */
+    div[data-testid="stButton"]:has(button[key^="pf_tog_"]) {
+        margin-top: 0.1rem !important;
+    }
+    div[data-testid="stButton"]:has(button[key^="pf_tog_"]) button {
+        border-radius: 10px !important;
+        border: 1px solid rgba(128,128,128,0.14) !important;
+        font-size: 0.72rem !important;
+    }
+}
+
 </style>""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -4822,7 +4905,7 @@ with _hc:
   <div style="font-family:'Space Grotesk',sans-serif;font-size:0.66rem;
     letter-spacing:0.22em;text-transform:uppercase;color:var(--text-color);
     opacity:0.35;margin-top:0.28rem;">Stock Check
-    <span style="opacity:0.55;font-size:0.56rem;letter-spacing:0.1em;">v9.0</span></div>
+    <span style="opacity:0.55;font-size:0.56rem;letter-spacing:0.1em;">v9.1</span></div>
 </div>
 """, unsafe_allow_html=True)
 with _lvc:
@@ -7784,6 +7867,7 @@ with tab_portfolio:
                     if st.button("Portfolio importieren →", key="wiz_6_import",
                                  use_container_width=True, type="primary"):
                         st.session_state["pf_wiz_step"] = 99
+                        st.session_state["pf_wiz_import_hint"] = True
                         st.rerun()
 
                 with _opt_b:
@@ -7870,6 +7954,22 @@ with tab_portfolio:
                     st.session_state["pf_wiz_step"] = 0
                     st.rerun()
                 st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+
+        # ── Onboarding-Hinweis nach Wizard-Abschluss ──────────────────────────
+        if st.session_state.get("pf_wiz_import_hint"):
+            st.markdown(
+                '<div style="background:rgba(16,185,129,0.06);'
+                'border:1px solid rgba(16,185,129,0.2);border-radius:12px;'
+                'padding:1rem 1.2rem;margin-bottom:0.8rem;">'
+                '<div style="font-weight:600;margin-bottom:0.4rem;">Depot importieren</div>'
+                '<div style="font-size:0.82rem;color:var(--text-color);opacity:0.65;'
+                'line-height:1.7;">'
+                '→ <strong>PDF-Import</strong>: Lade deine Depotaufstellung (TR App → Konto → '
+                'Dokumente → Depotaufstellung) als PDF hoch<br>'
+                '→ <strong>Manuell</strong>: Gib Positionen mit Ticker, Anteilen und Kaufkurs direkt ein<br>'
+                '→ <strong>Kaufkurse</strong>: Optional die Steuerübersicht-CSV für genaue Einstiegskurse'
+                '</div></div>',
+                unsafe_allow_html=True)
 
         # ── Bestehende Setup-Optionen (PDF / Manuell) ─────────────────────────
         st.markdown('<div class="ace-section">Positionen hinzufügen</div>',
@@ -7972,8 +8072,8 @@ with tab_portfolio:
                     _pi6  = _pp6["isin"]
                     _at6  = _ptk.get(_pi6, "")
                     _inv6 = _pcsv.get(_pi6)
-                    _avg6 = round(_inv6 / _pp6["shares"], 2) if (
-                        _inv6 and _pp6.get("shares")) else None
+                    _sh6  = _pp6.get("shares") or 0
+                    _avg6 = round(_inv6 / _sh6, 2) if (_inv6 and _sh6 > 0) else None
 
                     _pc1,_pc2,_pc3,_pc4,_pc5,_pc6 = st.columns([2.5,1.1,1.1,1.1,1.6,1.9])
                     with _pc1:
@@ -8049,8 +8149,9 @@ with tab_portfolio:
                             _tk7  = _pdf_upd_tickers.get(_pi7, "")
                             _pn7  = _pdf_upd_assigns.get(_pi7, PORTFOLIO_NAMES[0])
                             _inv7 = _pcsv.get(_pi7)
-                            _avg7 = (round(_inv7 / _pp7["shares"], 4)
-                                     if (_inv7 and _pp7.get("shares")) else None)
+                            _sh7  = _pp7.get("shares") or 0
+                            _avg7 = (round(_inv7 / _sh7, 4)
+                                     if (_inv7 and _sh7 > 0) else None)
                             # Duplikat-Prüfung
                             _ex7 = any(
                                 p.get("isin") == _pi7 or
@@ -8143,10 +8244,13 @@ with tab_portfolio:
         _gd_tv = _gd_ti = 0
         for _gp in _gd_all:
             _gddv = calc_position_derived(_gp)
-            _gd_tv += _gddv.get("current_value") or 0
-            _gd_ti += _gddv.get("invested") or 0
+            _cv_g = _gddv.get("current_value") or 0
+            _iv_g = _gddv.get("invested") or 0
+            _gd_tv += 0 if _cv_g != _cv_g else _cv_g
+            _gd_ti += 0 if _iv_g != _iv_g else _iv_g
         _gd_pl    = _gd_tv - _gd_ti
         _gd_pct   = ((_gd_tv / _gd_ti - 1) * 100) if _gd_ti > 0 else 0
+        if _gd_pct != _gd_pct: _gd_pct = 0
         _gd_pc    = "#10b981" if _gd_pl >= 0 else "#ef4444"
         _gd_sign  = "+" if _gd_pl >= 0 else ""
         _gd_bench = fetch_benchmark_return("IWDA.AS", "1y") or 0
@@ -8678,6 +8782,16 @@ with tab_portfolio:
                     save_portfolio(port_data)
                     st.session_state.pop(f"confirm_reset_{pname}", None)
                     st.session_state.pop(f"pf_analysis_{pname}", None)
+                    # Wenn danach alle Portfolios leer → Wizard neu starten
+                    _all_empty = all(
+                        not port_data.get(pn, {}).get("positions")
+                        for pn in PORTFOLIO_NAMES
+                    )
+                    if _all_empty:
+                        st.session_state["pf_show_setup"] = True
+                        st.session_state["pf_wiz_step"]   = 0
+                        st.session_state.pop("pf_wiz_fresh_start", None)
+                        st.session_state.pop("pf_wiz_import_hint", None)
                     st.rerun()
             with _rc2:
                 if st.button("Abbrechen", key=f"no_{pname}",
@@ -8888,8 +9002,12 @@ with tab_portfolio:
                 index=0)
             def _sort_fn(p):
                 d = calc_position_derived(p)
-                if "Größe"       in _sort_key: return d["current_value"] or 0
-                if "Performance" in _sort_key: return d["pl_pct"] or 0
+                if "Größe" in _sort_key:
+                    v = d["current_value"] or 0
+                    return 0 if v != v else v
+                if "Performance" in _sort_key:
+                    v = d["pl_pct"] or 0
+                    return 0 if v != v else v
                 return (p.get("name") or "").lower()
             _sorted_positions = sorted(
                 enumerate(positions),
@@ -8921,17 +9039,29 @@ div[data-testid="stButton"]:has(button[key^="pf_tog_"]) button {
 div[data-testid="stButton"]:has(button[key^="pf_tog_"]) button:hover {
     opacity:1!important;background:rgba(16,185,129,0.06)!important;color:#10b981!important;
 }
+/* Mobile: Positions-Grid auf 1 Spalte umstellen */
+@media (max-width: 640px) {
+    div[data-testid="stButton"]:has(button[key^="pf_tog_"]) {
+        margin-top:-0.4rem!important;
+    }
+    div[data-testid="stButton"]:has(button[key^="pf_tog_"]) button {
+        font-size:0.68rem!important;
+        height:2.1rem!important;
+    }
+}
 </style>""", unsafe_allow_html=True)
 
             _pos_cols = st.columns(2)
             for _pci, (_pi, _pos) in enumerate(_sorted_positions):
                 _pdv   = calc_position_derived(_pos)
-                _pcv   = _pdv["current_value"]
-                _pinv  = _pdv["invested"]
-                _ppl   = _pdv["pl_abs"]
-                _ppct  = _pdv["pl_pct"]
-                _pcol  = "#10b981" if (_ppl or 0) >= 0 else "#ef4444"
-                _psign = "+" if (_ppl or 0) >= 0 else ""
+                _pcv   = _pdv["current_value"] or 0
+                _pinv  = _pdv["invested"] or 0
+                _ppl   = _pdv["pl_abs"] or 0
+                _ppct  = _pdv["pl_pct"] or 0
+                if _ppct != _ppct: _ppct = 0   # Nan-Guard
+                if _ppl  != _ppl:  _ppl  = 0
+                _pcol  = "#10b981" if _ppl >= 0 else "#ef4444"
+                _psign = "+" if _ppl >= 0 else ""
                 _pwgt  = (_pcv / _tot_cv * 100) if _tot_cv > 0 else 0
                 _ptkr  = _pos.get("ticker") or "—"
                 _pshr  = _pos.get("shares")
@@ -9210,12 +9340,13 @@ div[data-testid="stButton"]:has(button[key^="pf_tog_"]) button:hover {
                     # Positionen mit berechneten Werten für Scoring
                     _apos = [{**p, **calc_position_derived(p)} for p in positions]
                     _ascores = score_portfolio(_apos, pname, _ametas)
-                    _atotcv  = sum(calc_position_derived(p)["current_value"]
+                    _atotcv  = sum((calc_position_derived(p)["current_value"] or 0)
                                    for p in positions)
-                    _atotinv = sum(calc_position_derived(p)["invested"]
+                    _atotinv = sum((calc_position_derived(p)["invested"] or 0)
                                    for p in positions)
                     _apfret  = ((_atotcv - _atotinv) / _atotinv * 100
                                 if _atotinv > 0 else 0)
+                    if _apfret != _apfret: _apfret = 0
                     with st.spinner("Lade Benchmark…"):
                         _abench = fetch_benchmark_return("IWDA.AS", "1y")
                     _anar = ""
@@ -9236,8 +9367,8 @@ div[data-testid="stButton"]:has(button[key^="pf_tog_"]) button:hover {
                                             "name": p.get("name") or p.get("ticker",""),
                                             "ticker": p.get("ticker",""),
                                             "value": round(calc_position_derived(p)["current_value"] or 0, 2),
-                                            "weight_pct": round(calc_position_derived(p)["current_value"] / _atotcv * 100 if _atotcv > 0 else 0, 1),
-                                            "performance_pct": round(calc_position_derived(p)["pl_pct"] or 0, 1),
+                                            "weight_pct": round((calc_position_derived(p)["current_value"] or 0) / _atotcv * 100 if _atotcv > 0 else 0, 1),
+                                            "performance_pct": round(max(-9999, min(9999, calc_position_derived(p)["pl_pct"] or 0)), 1),
                                             "asset_type": "etf" if any(k in (p.get("name","")).upper() for k in ["ETF","ISHARES","VANGUARD","XTRACKERS","AMUNDI","SPDR"]) else "stock",
                                             "sector": _ametas.get(p.get("ticker",""), {}).get("sector",""),
                                         }
