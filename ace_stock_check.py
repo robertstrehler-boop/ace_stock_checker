@@ -948,12 +948,21 @@ def fetch_price_history(ticker, period="9mo", interval="1d"):
     return df
 
 @st.cache_data(ttl=3600, show_spinner=False)
+def _fetch_yf_info(ticker: str) -> dict:
+    """Einmaliger gecachter yfinance .info Abruf — von allen Funktionen gemeinsam genutzt."""
+    if not ticker: return {}
+    try:
+        return yf.Ticker(ticker).info or {}
+    except Exception:
+        return {}
+
+@st.cache_data(ttl=3600, show_spinner=False)
 def fetch_yahoo_profile(ticker):
     out = {"ok": False, "profile": {"name":"","sector":"","industry":"","summary":"",
                                     "country":"","currency":"","exchange":""}, "errors":[]}
     if not ticker: out["errors"].append("Kein Ticker."); return out
     try:
-        info = yf.Ticker(ticker).info or {}
+        info = _fetch_yf_info(ticker)
     except Exception as e: out["errors"].append(str(e)); return out
     _qt = (info.get("quoteType") or "").upper()
     _is_etf = _qt in ("ETF", "MUTUALFUND", "FUND")
@@ -1157,8 +1166,8 @@ def gpt_news_summary(titles: list, api_key: str, model="gpt-4.1-mini") -> str:
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_yahoo_metrics(ticker):
     if not ticker: return {}
-    try: info = yf.Ticker(ticker).info or {}
-    except Exception: return {}
+    info = _fetch_yf_info(ticker)
+    if not info: return {}
     mcap_r = safe_float(info.get("marketCap"))
     shares_r = safe_float(info.get("sharesOutstanding"))
     div_r = safe_float(info.get("dividendYield"))
@@ -1224,8 +1233,9 @@ def fetch_extended_metrics(ticker: str) -> dict:
     """FCF, Verschuldung, Margen, Umsatzwachstum — erweiterte Fundamentaldaten."""
     if not ticker: return {}
     try:
+        info = _fetch_yf_info(ticker)
+        if not info: return {}
         obj  = yf.Ticker(ticker)
-        info = obj.info or {}
 
         mcap = safe_float(info.get("marketCap"))
 
