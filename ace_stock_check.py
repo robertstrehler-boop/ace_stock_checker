@@ -8900,83 +8900,37 @@ with tab_portfolio:
         _fresh = st.session_state.get("pf_wiz_fresh_start", False)
         if _fresh:
             # ── Onboarding-Card nach Wizard ────────────────────────────────
-            st.markdown("""
-<div style="
-    background: var(--secondary-background-color);
-    border: 1px solid rgba(128,128,128,0.18);
-    border-radius: 16px;
-    padding: 2rem 2rem 1.6rem 2rem;
-    margin: 0.6rem 0 1.2rem 0;
-">
-  <!-- Headline -->
-  <div style="margin-bottom:1.4rem;">
-    <div style="font-size:0.82rem; color:#10b981; font-weight:700;
-                letter-spacing:0.08em; text-transform:uppercase; margin-bottom:0.3rem;">
-      ✓ Alles eingerichtet
-    </div>
-    <div style="font-size:1.45rem; font-weight:700;
-                color:var(--text-color); line-height:1.25;">
-      So legst du deine erste Position an
-    </div>
-    <div style="font-size:0.9rem; opacity:0.6; margin-top:0.4rem;">
-      Dein Ziel und dein Portfolio sind gespeichert — in drei Schritten geht's los.
-    </div>
-  </div>
-
-  <!-- 3-Step Flow -->
-  <div style="display:flex; gap:0; margin-bottom:1.4rem; flex-wrap:wrap;">
-
-    <div style="flex:1 1 180px;
-                background:rgba(16,185,129,0.07);
-                border:1px solid rgba(16,185,129,0.2);
-                border-radius:10px 0 0 10px; padding:1rem 1.1rem;">
-      <div style="font-size:0.72rem; color:#10b981; font-weight:700;
-                  letter-spacing:0.1em; text-transform:uppercase; margin-bottom:0.25rem;">Schritt 1</div>
-      <div style="font-size:0.95rem; font-weight:700;
-                  color:var(--text-color); margin-bottom:0.3rem;">Aktie analysieren</div>
-      <div style="font-size:0.82rem; opacity:0.65; line-height:1.45;">
-        Wechsle zur <b>Analyse</b> oder zum <b>Velox Radar</b> und entdecke interessante Aktien.
-      </div>
-    </div>
-
-    <div style="display:flex; align-items:center; justify-content:center;
-                width:30px; flex-shrink:0; opacity:0.35; font-size:1rem;">→</div>
-
-    <div style="flex:1 1 180px;
-                background:rgba(128,128,128,0.05);
-                border:1px solid rgba(128,128,128,0.14);
-                border-left:none; border-right:none; padding:1rem 1.1rem;">
-      <div style="font-size:0.72rem; color:#10b981; font-weight:700;
-                  letter-spacing:0.1em; text-transform:uppercase; margin-bottom:0.25rem;">Schritt 2</div>
-      <div style="font-size:0.95rem; font-weight:700;
-                  color:var(--text-color); margin-bottom:0.3rem;">Watchlist anlegen</div>
-      <div style="font-size:0.82rem; opacity:0.65; line-height:1.45;">
-        Füge interessante Aktien zur <b>Watchlist</b> hinzu und behalte Kandidaten im Blick.
-      </div>
-    </div>
-
-    <div style="display:flex; align-items:center; justify-content:center;
-                width:30px; flex-shrink:0; opacity:0.35; font-size:1rem;">→</div>
-
-    <div style="flex:1 1 180px;
-                background:rgba(16,185,129,0.07);
-                border:1px solid rgba(16,185,129,0.2);
-                border-radius:0 10px 10px 0; padding:1rem 1.1rem;">
-      <div style="font-size:0.72rem; color:#10b981; font-weight:700;
-                  letter-spacing:0.1em; text-transform:uppercase; margin-bottom:0.25rem;">Schritt 3</div>
-      <div style="font-size:0.95rem; font-weight:700;
-                  color:var(--text-color); margin-bottom:0.3rem;">Ins Portfolio buchen</div>
-      <div style="font-size:0.82rem; opacity:0.65; line-height:1.45;">
-        Klicke in der <b>Watchlist</b> auf „Ins Portfolio" — fertig, ab jetzt automatisches Tracking.
-      </div>
-    </div>
-  </div>
-
-  <div style="font-size:0.79rem; opacity:0.4; text-align:center; font-style:italic;">
-    Du kannst auch direkt über „Position hinzufügen" manuell eintragen.
-  </div>
-</div>
-""", unsafe_allow_html=True)
+            # WICHTIG: Kein Einzug im HTML-String! 4+ Leerzeichen = Markdown-Code-Block.
+            _ob_html = (
+'<div style="background:var(--secondary-background-color);border:1px solid rgba(128,128,128,0.18);border-radius:16px;padding:2rem 2rem 1.6rem 2rem;margin:0.6rem 0 1.2rem 0;">'
+'<div style="margin-bottom:1.4rem;">'
+'<div style="font-size:0.82rem;color:#10b981;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.3rem;">&#10003; Alles eingerichtet</div>'
+'<div style="font-size:1.45rem;font-weight:700;color:var(--text-color);line-height:1.25;margin-bottom:0.3rem;">So legst du deine erste Position an</div>'
+'<div style="font-size:0.9rem;opacity:0.6;margin-top:0.2rem;">Dein Ziel und dein Portfolio sind gespeichert &#8212; in drei Schritten geht\'s los.</div>'
+'</div>'
+'<div style="display:flex;gap:0;margin-bottom:1.4rem;flex-wrap:wrap;">'
+'<div style="flex:1 1 180px;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.2);border-radius:10px 0 0 10px;padding:1rem 1.1rem;">'
+'<div style="font-size:0.72rem;color:#10b981;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.25rem;">Schritt 1</div>'
+'<div style="font-size:0.95rem;font-weight:700;color:var(--text-color);margin-bottom:0.3rem;">Aktie analysieren</div>'
+'<div style="font-size:0.82rem;opacity:0.65;line-height:1.45;">Wechsle zur <b>Analyse</b> oder zum <b>Velox Radar</b> und entdecke interessante Aktien.</div>'
+'</div>'
+'<div style="display:flex;align-items:center;justify-content:center;width:30px;flex-shrink:0;opacity:0.35;font-size:1rem;">&#8594;</div>'
+'<div style="flex:1 1 180px;background:rgba(128,128,128,0.05);border:1px solid rgba(128,128,128,0.14);border-left:none;border-right:none;padding:1rem 1.1rem;">'
+'<div style="font-size:0.72rem;color:#10b981;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.25rem;">Schritt 2</div>'
+'<div style="font-size:0.95rem;font-weight:700;color:var(--text-color);margin-bottom:0.3rem;">Watchlist anlegen</div>'
+'<div style="font-size:0.82rem;opacity:0.65;line-height:1.45;">F&#252;ge interessante Aktien zur <b>Watchlist</b> hinzu und behalte Kandidaten im Blick.</div>'
+'</div>'
+'<div style="display:flex;align-items:center;justify-content:center;width:30px;flex-shrink:0;opacity:0.35;font-size:1rem;">&#8594;</div>'
+'<div style="flex:1 1 180px;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.2);border-radius:0 10px 10px 0;padding:1rem 1.1rem;">'
+'<div style="font-size:0.72rem;color:#10b981;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.25rem;">Schritt 3</div>'
+'<div style="font-size:0.95rem;font-weight:700;color:var(--text-color);margin-bottom:0.3rem;">Ins Portfolio buchen</div>'
+'<div style="font-size:0.82rem;opacity:0.65;line-height:1.45;">Klicke in der <b>Watchlist</b> auf &#8222;Ins Portfolio&#8220; &#8212; fertig, ab jetzt automatisches Tracking.</div>'
+'</div>'
+'</div>'
+'<div style="font-size:0.79rem;opacity:0.4;text-align:center;font-style:italic;">Du kannst auch direkt &#252;ber &#8222;Position hinzuf&#252;gen&#8220; manuell eintragen.</div>'
+'</div>'
+            )
+            st.markdown(_ob_html, unsafe_allow_html=True)
 
             # CTA Buttons
             _ob_c1, _ob_c2, _ob_c3 = st.columns([1, 1, 1])
