@@ -1067,12 +1067,14 @@ def fetch_price_history(ticker, period="9mo", interval="1d"):
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def _fetch_yf_info(ticker: str) -> dict:
-    """Einmaliger gecachter yfinance .info Abruf — von allen Funktionen gemeinsam genutzt."""
+    """Gecachter yfinance .info Abruf.
+    Wirft bei Fehler eine Exception → Streamlit cached Fehler NICHT → nächster Aufruf versucht es neu."""
     if not ticker: return {}
-    try:
-        return yf.Ticker(ticker).info or {}
-    except Exception:
-        return {}
+    # Exception propagieren, nicht fangen — nicht-gecachte Fehler ermöglichen Retry
+    info = yf.Ticker(ticker).info
+    if not info:
+        raise ValueError(f"Yahoo returned empty info for {ticker}")
+    return info
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_yahoo_profile(ticker):
@@ -1284,7 +1286,10 @@ def gpt_news_summary(titles: list, api_key: str, model="gpt-4.1-mini") -> str:
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_yahoo_metrics(ticker):
     if not ticker: return {}
-    info = _fetch_yf_info(ticker)
+    try:
+        info = _fetch_yf_info(ticker)
+    except Exception:
+        return {}
     if not info: return {}
     mcap_r = safe_float(info.get("marketCap"))
     shares_r = safe_float(info.get("sharesOutstanding"))
@@ -1352,7 +1357,10 @@ def fetch_extended_metrics(ticker: str) -> dict:
     if not ticker: return {}
     try:
         info = _fetch_yf_info(ticker)
-        if not info: return {}
+    except Exception:
+        return {}
+    if not info: return {}
+    try:
         obj  = yf.Ticker(ticker)
 
         mcap = safe_float(info.get("marketCap"))
@@ -1517,10 +1525,11 @@ def fetch_sector_cached(ticker: str) -> str:
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def _card_full_data(ticker: str, mode: str) -> dict:
-    """Holt Metriken + Scores für eine Radar-Card — cached 1 Stunde."""
+    """Holt Metriken + Scores für eine Radar-Card — cached 1 Stunde.
+    Wirft Exception bei leeren Daten → Streamlit cached Fehler NICHT → Retry beim nächsten Seitenaufruf."""
+    # _fetch_yf_info wirft Exception bei leeren Daten → wird nicht gecacht
+    info = _fetch_yf_info(ticker)  # Exception propagiert
     try:
-        obj  = yf.Ticker(ticker)
-        info = obj.info or {}
         mcap_r = safe_float(info.get("marketCap"))
         div_r  = safe_float(info.get("dividendYield"))
         _div_pct = (round(div_r, 2) if div_r and div_r > 0.20
@@ -5560,6 +5569,8 @@ with tab_analyse:
         auto_loaded = bool(yf_m) and st.session_state.get("ace_yf_ticker") == ticker
 
         if _manual_reload and ticker:
+            # Cache leeren → erzwingt frischen Yahoo-Abruf auch nach vorherigem Timeout
+            _fetch_yf_info.clear()
             with st.spinner("Lade von Yahoo…"):
                 _fetched     = fetch_yahoo_metrics(ticker)
                 _fetched_ext = fetch_extended_metrics(ticker)
