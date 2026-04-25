@@ -5568,6 +5568,20 @@ with tab_analyse:
         yf_m        = st.session_state.get("ace_yf_metrics", {})
         auto_loaded = bool(yf_m) and st.session_state.get("ace_yf_ticker") == ticker
 
+        # ── Auto-Fetch wenn aus Watchlist/Radar kommend und noch keine Metrics ──
+        # auto_run_fund ist True → aber Metrics fehlen → erst laden, dann gleich auswerten
+        if (st.session_state.get("auto_run_fund") and not yf_m
+                and ticker and not _is_etf_ticker):
+            with st.spinner("Lade Fundamentaldaten…"):
+                _af = fetch_yahoo_metrics(ticker)
+                _ax = fetch_extended_metrics(ticker)
+            if _af:
+                st.session_state["ace_yf_metrics"]  = _af
+                st.session_state["ace_ext_metrics"] = _ax
+                st.session_state["ace_yf_ticker"]   = ticker
+                yf_m        = _af
+                auto_loaded = True
+
         if _manual_reload and ticker:
             # Cache leeren → erzwingt frischen Yahoo-Abruf auch nach vorherigem Timeout
             _fetch_yf_info.clear()
