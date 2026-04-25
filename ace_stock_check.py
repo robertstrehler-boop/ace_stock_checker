@@ -9661,6 +9661,52 @@ div[data-testid="stButton"]:has(button[key^="pf_tog_"]) button:hover {
                                 st.session_state[_pf_open_key] = None
                                 st.rerun()
 
+                        # ── Verschieben zwischen Portfolios ────────────────────
+                        _other_pnames = [p for p in PORTFOLIO_NAMES if p != pname]
+                        if _other_pnames:
+                            st.markdown(
+                                '<div style="border-top:1px solid rgba(128,128,128,0.12);'
+                                'margin:0.7rem 0 0.5rem 0;"></div>',
+                                unsafe_allow_html=True)
+                            _mv_opts = [pf_display_name(port_data, p) for p in _other_pnames]
+                            _mv_cols = st.columns([2.5, 1.5])
+                            with _mv_cols[0]:
+                                _mv_target_disp = st.selectbox(
+                                    "Verschieben nach",
+                                    _mv_opts,
+                                    key=f"mv_sel_{pname}_{_pi}",
+                                    label_visibility="collapsed")
+                                _mv_target = _other_pnames[_mv_opts.index(_mv_target_disp)]
+                            with _mv_cols[1]:
+                                if st.button(f"↗ Verschieben",
+                                             key=f"mv_btn_{pname}_{_pi}",
+                                             use_container_width=True):
+                                    # Position aus aktuellem Portfolio entfernen
+                                    _mv_pos = positions.pop(_pi)
+                                    # in Ziel-Portfolio einfügen (Duplikat-Check)
+                                    _tgt_positions = port_data.setdefault(
+                                        _mv_target, {}).setdefault("positions", [])
+                                    _already = any(
+                                        p.get("isin") == _mv_pos.get("isin") or
+                                        (p.get("ticker") and
+                                         p.get("ticker","").upper() == (_mv_pos.get("ticker") or "").upper())
+                                        for p in _tgt_positions)
+                                    if not _already:
+                                        _tgt_positions.append(_mv_pos)
+                                        _mv_disp_src = pf_display_name(port_data, pname)
+                                        _mv_disp_tgt = pf_display_name(port_data, _mv_target)
+                                        save_portfolio(port_data)
+                                        st.session_state[_pf_open_key] = None
+                                        st.success(
+                                            f"↗ {_mv_pos.get('name','Position')} "
+                                            f"→ {_mv_disp_tgt}")
+                                    else:
+                                        # Position zurücklegen, da schon vorhanden
+                                        positions.insert(_pi, _mv_pos)
+                                        st.warning(
+                                            "Position ist bereits im Ziel-Portfolio.")
+                                    st.rerun()
+
                         st.markdown('</div>', unsafe_allow_html=True)
 
 
