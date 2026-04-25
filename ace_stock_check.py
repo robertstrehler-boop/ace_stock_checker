@@ -778,10 +778,12 @@ def parse_tr_csv_for_costbasis(csv_bytes: bytes) -> dict:
                 return col_map[n.lower()]
         return None
 
-    col_tx   = _col(["transaktionen", "type", "transaction", "art"])
-    col_isin = _col(["isin"])
-    col_name = _col(["name", "titel", "title", "wertpapier"])
-    col_sum  = _col(["summe", "total", "betrag", "amount", "gesamt"])
+    col_tx     = _col(["transaktionen", "type", "transaction", "art"])
+    col_isin   = _col(["isin"])
+    col_name   = _col(["name", "titel", "title", "wertpapier"])
+    col_sum    = _col(["summe", "total", "betrag", "amount", "gesamt"])
+    col_shares = _col(["stück", "stueck", "anzahl", "shares", "qty", "quantity", "menge"])
+    col_price  = _col(["kurs", "kurs/stück", "preis", "price", "kurs/stueck"])
 
     if not col_tx or not col_isin:
         return {}   # Pflichtfelder fehlen
@@ -790,60 +792,108 @@ def parse_tr_csv_for_costbasis(csv_bytes: bytes) -> dict:
     for _, row in df.iterrows():
         tx   = str(row.get(col_tx, "")).strip().upper()
         isin = str(row.get(col_isin, "")).strip().upper()
-        name = str(row.get(col_name, "")) .strip() if col_name else ""
+        name = str(row.get(col_name, "")).strip() if col_name else ""
         if not isin or isin in ("NAN", "") or tx not in ("BUY", "SELL", "KAUF", "VERKAUF"):
             continue
-        # BUY / KAUF vereinheitlichen
         is_buy  = tx in ("BUY",  "KAUF")
         is_sell = tx in ("SELL", "VERKAUF")
-        # Summe = realer Geldfluss inkl. Gebühren; Total ohne Gebühren
-        raw = row.get(col_sum, "0") if col_sum else "0"
-        summe = _parse_eur(raw)
+
+        raw_sum = row.get(col_sum, "0") if col_sum else "0"
+        summe   = _parse_eur(raw_sum)
+
+        # Stück + Kurs parsen für VWAP-Berechnung
+        shares_tx = _parse_eur(str(row.get(col_shares, "0") or "0")) if col_shares else 0.0
+        price_tx  = _parse_eur(str(row.get(col_price,  "0") or "0")) if col_price  else 0.0
 
         if isin not in result:
-            result[isin] = {"invested": 0.0, "name": name,
-                             "has_sells": False, "buy_count": 0}
+            result[isin] = {
+                "invested":          0.0,
+                "name":              name,
+                "has_sells":         False,
+                "buy_count":         0,
+                "vwap_cost":         0.0,   # Σ(stück × kurs) für alle BUYs
+                "vwap_shares":       0.0,   # Σ(stück) für alle BUYs
+                "shares_sold":       0.0,
+            }
         if name and not result[isin]["name"]:
             result[isin]["name"] = name
-        if is_buy:
-            result[isin]["invested"]  += abs(summe)   # BUY-Summe ist negativ → abs
-            result[isin]["buy_count"] += 1
-        elif is_sell:
-            result[isin]["invested"]   = max(0.0, result[isin]["invested"] - abs(summe))
-            result[isin]["has_sells"]  = True
 
-    return {k: v for k, v in result.items() if v["invested"] > 0.1}
+        if is_buy:
+            result[isin]["invested"]    += abs(summe)
+            result[isin]["buy_count"]   += 1
+            # VWAP-Akkumulation: wenn Stück + Kurs vorhanden, direkt aus Transaktionsdaten
+            if shares_tx > 0 and price_tx > 0:
+                result[isin]["vwap_cost"]   += shares_tx * price_tx
+                result[isin]["vwap_shares"] += shares_tx
+            elif shares_tx > 0 and abs(summe) > 0:
+                # Kurs fehlt → aus Summe ÷ Stück rekonstruieren
+                result[isin]["vwap_cost"]   += abs(summe)
+                result[isin]["vwap_shares"] += shares_tx
+        elif is_sell:
+            result[isin]["has_sells"]   = True
+            result[isin]["shares_sold"] += max(0.0, shares_tx)
+            # Investiertes Kapital: SELL-Erlöse NICHT abziehen —
+            # avg_price kommt direkt aus VWAP der BUYs, nicht aus invested/shares
+
+    # avg_price aus VWAP berechnen (robuster als invested / pdf_shares)
+    for isin, d in result.items():
+        if d["vwap_shares"] > 0:
+            d["avg_price"] = round(d["vwap_cost"] / d["vwap_shares"], 4)
+        else:
+            d["avg_price"] = None   # nicht berechenbar
+
+    return {k: v for k, v in result.items() if v["invested"] > 0.1 or v.get("avg_price")}
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def lookup_ticker_from_isin(isin: str) -> str:
-    """Sucht den Yahoo-Ticker für eine ISIN. Bevorzugt EUR-Börsen (Xetra > FRA > EU).
+    """Sucht den Yahoo-Ticker für eine ISIN. Unterstützt Aktien und ETFs.
+    Bevorzugt EUR-Börsen, akzeptiert ETF-spezifische Exchanges.
     Ergebnis wird 24h gecacht."""
     if not isin:
         return ""
     try:
-        results = yf.Search(isin, max_results=10).quotes or []
-        # Reihenfolge: EUR-Börsen zuerst, USD-Börsen als Fallback
-        eur_exchanges  = ["XETR", "GER", "FRA", "STU", "TDG", "VIE",
-                          "PAR", "AMS", "MIL", "BRU", "LIS", "OSL"]
-        usd_exchanges  = ["NMS", "NYQ", "PCX", "NGM", "NCM", "ASE"]
-        # Erst: EUR-Börse
+        results = yf.Search(isin, max_results=15).quotes or []
+
+        eur_exchanges = [
+            "XETR", "GER", "FRA", "STU", "TDG", "VIE",
+            "PAR", "AMS", "MIL", "BRU", "LIS", "OSL", "BER",
+            # ETF-Exchanges
+            "LSE", "IOB", "EPA", "EBS", "BATS",
+        ]
+        usd_exchanges = ["NMS", "NYQ", "PCX", "NGM", "NCM", "ASE", "CBOE"]
+        etf_types     = {"ETF", "MUTUALFUND", "FUND"}
+
+        def _valid_sym(sym):
+            return bool(sym) and len(sym) <= 15
+
+        # Priorität 1: EUR-Börse mit beliebigem Typ
         for r in results:
             sym = r.get("symbol", "")
             exc = (r.get("exchange", "") or "").upper()
-            if sym and len(sym) <= 12 and exc in eur_exchanges:
+            if _valid_sym(sym) and exc in eur_exchanges:
                 return sym
-        # Dann: USD-Börse (als Notfall, Währungskorrektur übernimmt refresh)
+
+        # Priorität 2: ETF/Fund auf beliebiger Börse (für nicht-EUR ETFs)
+        for r in results:
+            sym = r.get("symbol", "")
+            qt  = (r.get("quoteType", "") or "").upper()
+            if _valid_sym(sym) and qt in etf_types:
+                return sym
+
+        # Priorität 3: USD-Börse
         for r in results:
             sym = r.get("symbol", "")
             exc = (r.get("exchange", "") or "").upper()
-            if sym and len(sym) <= 12 and exc in usd_exchanges:
+            if _valid_sym(sym) and exc in usd_exchanges:
                 return sym
-        # Letzter Fallback
+
+        # Fallback: erstes Ergebnis mit gültigem Symbol
         for r in results:
             sym = r.get("symbol", "")
-            if sym and len(sym) <= 12 and "." not in sym[-3:]:
+            if _valid_sym(sym):
                 return sym
+
     except Exception:
         pass
     return ""
@@ -7669,42 +7719,66 @@ with tab_portfolio:
                     key="pf_wiz_monatlich_inp")
                 st.session_state["pf_wiz_monatlich"] = _monatlich
 
-                # Berechnung
+                # Berechnung mit Inflationsbereinigung
                 _jahre_bis_rente = max(_renten_alter - _alter_jetzt, 1)
-                # 4%-Regel: Depot = Jahresausgaben / 0.04
-                _zielwert_berechnet = int(_monats_rente * 12 / 0.04)
-                st.session_state["pf_wiz_zielwert"] = _zielwert_berechnet
+                _inflation   = 0.02          # 2% p.a. angenommen
+                _rendite_nom = 0.07          # 7% nominale Rendite (historisch Aktien)
+                _rendite_real= _rendite_nom - _inflation  # ~5% real
+
+                # Wunsch-Rente in heutigen Euros → Nominalwert bei Rentenbeginn
+                _rente_nominal = _monats_rente * (1 + _inflation) ** _jahre_bis_rente
+
+                # 4%-Regel mit inflationsangepasster Entnahme
+                # SWR (Safe Withdrawal Rate): 4% = 25× Jahresausgaben (nominal bei Rentenbeginn)
+                _zielwert_nominal   = int(_rente_nominal * 12 / 0.04)
+                _zielwert_real_heute = int(_monats_rente * 12 / 0.04)   # Kaufkraft heute
+                st.session_state["pf_wiz_zielwert"] = _zielwert_nominal
 
                 if _monats_rente > 0:
-                    _box_color = "rgba(16,185,129,0.07)"
+                    _box_color  = "rgba(16,185,129,0.07)"
                     _box_border = "rgba(16,185,129,0.2)"
                     _proj_lines = [
-                        f'Für <strong>{_monats_rente:,} € mtl.</strong> Rente ab {_renten_alter} brauchst du ca. '
-                        f'<strong>{_zielwert_berechnet:,} €</strong> im Depot (4%-Regel).',
+                        f'Wunsch-Rente: <strong>{_monats_rente:,} € (Kaufkraft heute)</strong> '
+                        f'→ entspricht in {_jahre_bis_rente} Jahren nominal ca. '
+                        f'<strong>{_rente_nominal:,.0f} €/Monat</strong> (2% Inflation).',
+                        f'Benötigtes Depot bei Rentenbeginn: ca. <strong>{_zielwert_nominal:,} €</strong> '
+                        f'(4%-Entnahmeregel, inflationsbereinigt).',
                     ]
                     if _monatlich > 0:
-                        _rate = 0.07 / 12
+                        # Projektion mit nominaler Rendite (7%) und monatlichen Beiträgen
+                        _rate_mon = _rendite_nom / 12
                         try:
-                            _n = math.log(1 + (_zielwert_berechnet * _rate) / _monatlich) / math.log(1 + _rate)
+                            _n = math.log(1 + (_zielwert_nominal * _rate_mon) / _monatlich) / math.log(1 + _rate_mon)
                             _jahre_needed = _n / 12
                             if abs(_jahre_needed - _jahre_bis_rente) < 3:
-                                _proj_lines.append(f'Mit {_monatlich:,} €/Monat erreichst du das in ca. <strong>{_jahre_needed:.0f} Jahren</strong> — perfekt! ✓')
+                                _proj_lines.append(
+                                    f'Mit <strong>{_monatlich:,} €/Monat</strong> erreichst du das in ca. '
+                                    f'<strong>{_jahre_needed:.0f} Jahren</strong> — gut geplant.')
                             elif _jahre_needed < _jahre_bis_rente:
-                                _proj_lines.append(f'Mit {_monatlich:,} €/Monat erreichst du das schon früher — in ca. <strong>{_jahre_needed:.0f} Jahren</strong>. ✓')
+                                _proj_lines.append(
+                                    f'Mit <strong>{_monatlich:,} €/Monat</strong> erreichst du das schon in '
+                                    f'<strong>{_jahre_needed:.0f} Jahren</strong> — früher als geplant.')
                             else:
                                 _diff = _jahre_needed - _jahre_bis_rente
-                                _more = int((_zielwert_berechnet - _monatlich * _n) / _n * 12 / 12)
+                                # Benötigte Sparrate für Ziel in geplanter Zeit
+                                _n_plan = _jahre_bis_rente * 12
+                                _needed_rate = (_zielwert_nominal * _rate_mon) / ((1 + _rate_mon) ** _n_plan - 1)
                                 _proj_lines.append(
-                                    f'Mit {_monatlich:,} €/Monat dauert es ca. <strong>{_jahre_needed:.0f} Jahre</strong> — '
-                                    f'{_diff:.0f} Jahre länger als geplant. Erhöhe die Sparrate oder passe das Ziel an.')
-                                _box_color = "rgba(245,158,11,0.07)"
+                                    f'Mit {_monatlich:,} €/Monat dauert es ca. <strong>{_jahre_needed:.0f} Jahre</strong> '
+                                    f'— {_diff:.0f} J. länger als geplant. '
+                                    f'Für {_jahre_bis_rente} Jahre brauchst du ~<strong>{_needed_rate:,.0f} €/Monat</strong>.')
+                                _box_color  = "rgba(245,158,11,0.07)"
                                 _box_border = "rgba(245,158,11,0.25)"
                         except Exception:
                             pass
+
+                    _proj_lines.append(
+                        f'<span style="font-size:0.72rem;opacity:0.45;">Annahmen: 7% nominale Rendite · '
+                        f'2% Inflation · 4%-Entnahmeregel. Keine Garantie.</span>')
                     st.markdown(
                         f'<div style="background:{_box_color};border:1px solid {_box_border};'
                         f'border-radius:10px;padding:0.8rem 1rem;margin-top:0.5rem;">'
-                        + "".join(f'<div style="font-size:0.82rem;line-height:1.65;margin-bottom:0.2rem;">{l}</div>'
+                        + "".join(f'<div style="font-size:0.82rem;line-height:1.65;margin-bottom:0.25rem;">{l}</div>'
                                   for l in _proj_lines)
                         + '</div>',
                         unsafe_allow_html=True)
@@ -8134,12 +8208,16 @@ with tab_portfolio:
                 _pdf_upd_tickers = {}
                 _pdf_upd_assigns = {}
 
+                _pcsv_full = st.session_state.get("pf_pdf_csv_full", {})
                 for _pp6 in _ppos:
                     _pi6  = _pp6["isin"]
                     _at6  = _ptk.get(_pi6, "")
                     _inv6 = _pcsv.get(_pi6)
                     _sh6  = _pp6.get("shares") or 0
-                    _avg6 = round(_inv6 / _sh6, 2) if (_inv6 and _sh6 > 0) else None
+                    # VWAP direkt aus CSV bevorzugen — korrekt auch bei mehreren Transaktionen
+                    _csv6_data = _pcsv_full.get(_pi6, {})
+                    _avg6 = (_csv6_data.get("avg_price")
+                             or (round(_inv6 / _sh6, 2) if (_inv6 and _sh6 > 0) else None))
 
                     _pc1,_pc2,_pc3,_pc4,_pc5,_pc6 = st.columns([2.5,1.1,1.1,1.1,1.6,1.9])
                     with _pc1:
@@ -8202,8 +8280,10 @@ with tab_portfolio:
                             with st.spinner("Lese CSV…"):
                                 _csv3 = parse_tr_csv_for_costbasis(_csv_up3.read())
                             if _csv3:
+                                # Vollständige CSV-Daten speichern (inkl. VWAP avg_price)
                                 st.session_state["pf_pdf_csv_inv"] = {
                                     isin: d["invested"] for isin, d in _csv3.items()}
+                                st.session_state["pf_pdf_csv_full"] = _csv3
                                 st.rerun()
 
                 _pv1, _pv2, _ = st.columns([2.5, 1.5, 6])
@@ -8211,6 +8291,7 @@ with tab_portfolio:
                     if st.button("Portfolio einrichten", key="btn_pdf_save",
                                  use_container_width=True, type="primary"):
                         _pf_fr2 = load_portfolio()
+                        _pcsv_full7 = st.session_state.get("pf_pdf_csv_full", {})
                         _padd = 0
                         for _pp7 in _ppos:
                             _pi7  = _pp7["isin"]
@@ -8218,8 +8299,10 @@ with tab_portfolio:
                             _pn7  = _pdf_upd_assigns.get(_pi7, PORTFOLIO_NAMES[0])
                             _inv7 = _pcsv.get(_pi7)
                             _sh7  = _pp7.get("shares") or 0
-                            _avg7 = (round(_inv7 / _sh7, 4)
-                                     if (_inv7 and _sh7 > 0) else None)
+                            # VWAP avg_price aus CSV bevorzugen (korrekt bei mehreren Käufen)
+                            _csv7 = _pcsv_full7.get(_pi7, {})
+                            _avg7 = (_csv7.get("avg_price")
+                                     or (round(_inv7 / _sh7, 4) if (_inv7 and _sh7 > 0) else None))
                             # Duplikat-Prüfung
                             _ex7 = any(
                                 p.get("isin") == _pi7 or
@@ -8243,7 +8326,7 @@ with tab_portfolio:
                         save_portfolio(_pf_fr2)
                         port_data = _pf_fr2
                         for _k7 in ["pf_pdf_positions","pf_pdf_tickers",
-                                    "pf_pdf_csv_inv","pf_pdf_assigns"]:
+                                    "pf_pdf_csv_inv","pf_pdf_csv_full","pf_pdf_assigns"]:
                             st.session_state.pop(_k7, None)
                         st.session_state["pf_show_setup"] = False
                         st.success(
@@ -8255,7 +8338,7 @@ with tab_portfolio:
                     if st.button("Abbrechen", key="btn_pdf_cancel",
                                  use_container_width=True):
                         for _k7 in ["pf_pdf_positions","pf_pdf_tickers",
-                                    "pf_pdf_csv_inv","pf_pdf_assigns"]:
+                                    "pf_pdf_csv_inv","pf_pdf_csv_full","pf_pdf_assigns"]:
                             st.session_state.pop(_k7, None)
                         st.session_state["pf_show_setup"] = False
                         st.rerun()
@@ -8552,17 +8635,25 @@ with tab_portfolio:
                        "#f59e0b" if _prog_pct >= 40 else "#3b82f6")
 
         # Hochrechnung: wie viele Jahre noch bis zum Ziel?
+        # 7% nominale Rendite, 2% Inflation — realistischer als reine 7%
         _fehlend    = max(0, _gzv - _gd_tv)
         _proj_Jahre = None
+        _proj_real_val = None   # inflationsbereinigte Kaufkraft
         if _gmon > 0 and _fehlend > 0:
-            # Vereinfacht: lineares Wachstum + 7% p.a. auf bestehendes Depot
-            _r = 0.07 / 12
+            _r = 0.07 / 12   # nominale Monatsrendite
+            _r_real = 0.05 / 12   # reale Monatsrendite (~5% nach Inflation)
             _n = 0
             _sim = _gd_tv
-            while _sim < _gzv and _n < 600:   # max 50 Jahre
+            while _sim < _gzv and _n < 600:
                 _sim = _sim * (1 + _r) + _gmon
                 _n += 1
-            _proj_Jahre = round(_n / 12, 1) if _n < 600 else None
+            if _n < 600:
+                _proj_Jahre = round(_n / 12, 1)
+                # Reale Kaufkraft des projizierten Wertes
+                _sim_real = _gd_tv
+                for _ in range(_n):
+                    _sim_real = _sim_real * (1 + _r_real) + _gmon
+                _proj_real_val = round(_sim_real)
 
         # Collapsed/Expanded toggle
         _goal_open = st.session_state.get("pf_goal_expanded", False)
@@ -8659,6 +8750,7 @@ with tab_portfolio:
                                 ("Sparrate", f"{_gmon:,.0f} €/Monat"),
                                 ("Risikoprofil", _grisk),
                                 ("Prognose", f"~{_proj_Jahre} J." if _proj_Jahre else "—"),
+                                ("Real-Kaufkraft", f"~{_proj_real_val:,.0f} €" if _proj_real_val else "—"),
                             ])
                         + f'</div></div>',
                         unsafe_allow_html=True)
