@@ -8344,6 +8344,7 @@ with tab_portfolio:
                             # avg_price aus Transaktionsexport-VWAP (falls geladen)
                             _csv7 = _pcsv_full7.get(_pi7, {})
                             _avg7 = _csv7.get("avg_price")   # None wenn kein CSV geladen
+                            _inv7 = _csv7.get("invested")    # Investierter Betrag aus VWAP
                             if _avg7:
                                 _n_avg7 += 1
                             # Duplikat-Prüfung
