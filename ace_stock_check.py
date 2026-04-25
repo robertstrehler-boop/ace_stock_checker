@@ -7485,7 +7485,7 @@ with tab_portfolio:
 
         if _wiz_step < 99:
             # ── Progress Dots ─────────────────────────────────────────────────
-            _total_steps = 6
+            _total_steps = 7
             _dots = "".join([
                 f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;'
                 f'background:{"#10b981" if i <= _wiz_step else "rgba(128,128,128,0.2)"};'
@@ -7838,8 +7838,63 @@ with tab_portfolio:
                         st.session_state["pf_wiz_step"] = 6
                         st.rerun()
 
-            # ── Step 6: Hast du bereits ein Portfolio? ────────────────────────
+            # ── Step 6: Portfolios benennen ───────────────────────────────────
             elif _wiz_step == 6:
+                _pf1_default = pf_display_name(port_data, PORTFOLIO_NAMES[0])
+                _pf2_default = pf_display_name(port_data, PORTFOLIO_NAMES[1])
+                st.markdown(
+                    '<div style="font-size:1.1rem;font-weight:700;margin-bottom:0.4rem;">'
+                    'Wie heißen deine Portfolios?</div>'
+                    '<div style="font-size:0.82rem;color:var(--text-color);opacity:0.5;'
+                    'margin-bottom:1.2rem;line-height:1.6;">'
+                    'Velox arbeitet mit zwei Portfolios: eines für stabile Qualitätswerte '
+                    '(Core Assets) und eines für wachstumsstarke Nischenwerte (Hidden Champions). '
+                    'Gib ihnen einen Namen der zu dir passt.</div>',
+                    unsafe_allow_html=True)
+
+                _nc1, _nc2 = st.columns(2)
+                with _nc1:
+                    st.markdown(
+                        '<div style="font-size:0.6rem;font-weight:700;letter-spacing:0.14em;'
+                        'text-transform:uppercase;color:#3b82f6;margin-bottom:0.25rem;">'
+                        'Core Assets Portfolio</div>'
+                        '<div style="font-size:0.73rem;color:var(--text-color);opacity:0.45;'
+                        'margin-bottom:0.4rem;">Qualitäts-Aktien · stabile Compounder</div>',
+                        unsafe_allow_html=True)
+                    _pf1_name = st.text_input(
+                        "Name Portfolio 1", value=_pf1_default,
+                        key="wiz_pf1_name", label_visibility="collapsed",
+                        max_chars=30, placeholder="z.B. Quiet Compounder")
+                with _nc2:
+                    st.markdown(
+                        '<div style="font-size:0.6rem;font-weight:700;letter-spacing:0.14em;'
+                        'text-transform:uppercase;color:#8b5cf6;margin-bottom:0.25rem;">'
+                        'Hidden Champions Portfolio</div>'
+                        '<div style="font-size:0.73rem;color:var(--text-color);opacity:0.45;'
+                        'margin-bottom:0.4rem;">Nischenmarktführer · Wachstum</div>',
+                        unsafe_allow_html=True)
+                    _pf2_name = st.text_input(
+                        "Name Portfolio 2", value=_pf2_default,
+                        key="wiz_pf2_name", label_visibility="collapsed",
+                        max_chars=30, placeholder="z.B. Hidden Champions")
+
+                _wb1, _wb2 = st.columns(2)
+                with _wb1:
+                    if st.button("← Zurück", key="wiz_6_back_naming",
+                                 use_container_width=True):
+                        st.session_state["pf_wiz_step"] = 5; st.rerun()
+                with _wb2:
+                    if st.button("Weiter →", key="wiz_6_name_next",
+                                 use_container_width=True, type="primary"):
+                        _n1 = (_pf1_name or "").strip() or PORTFOLIO_NAMES[0]
+                        _n2 = (_pf2_name or "").strip() or PORTFOLIO_NAMES[1]
+                        port_data = pf_set_display_name(port_data, PORTFOLIO_NAMES[0], _n1)
+                        port_data = pf_set_display_name(port_data, PORTFOLIO_NAMES[1], _n2)
+                        st.session_state["pf_wiz_step"] = 7
+                        st.rerun()
+
+            # ── Step 7: Hast du bereits ein Portfolio? ────────────────────────
+            elif _wiz_step == 7:
                 st.markdown(
                     '<div style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;">'
                     'Hast du bereits ein Portfolio?</div>'
@@ -7920,8 +7975,8 @@ with tab_portfolio:
                             st.rerun()
 
                 st.markdown('<div style="height:0.5rem;"></div>', unsafe_allow_html=True)
-                if st.button("← Zurück", key="wiz_6_back", use_container_width=False):
-                    st.session_state["pf_wiz_step"] = 5
+                if st.button("← Zurück", key="wiz_7_back", use_container_width=False):
+                    st.session_state["pf_wiz_step"] = 6
                     st.rerun()
 
             st.divider()
@@ -8043,16 +8098,27 @@ with tab_portfolio:
                     f'<b>{len(_ppos)} Positionen</b> aus PDF erkannt · '
                     f'{_csv_badge}</div>', unsafe_allow_html=True)
 
-                # Bulk-Zuweisung
+                # Bulk-Zuweisung mit Display-Namen + Kategorie-Hinweis
+                _pf0_disp = pf_display_name(port_data, PORTFOLIO_NAMES[0])
+                _pf1_disp = pf_display_name(port_data, PORTFOLIO_NAMES[1])
+                st.markdown(
+                    f'<div style="font-size:0.78rem;color:var(--text-color);opacity:0.55;'
+                    f'margin-bottom:0.4rem;line-height:1.6;">'
+                    f'Weise jede Position einem Portfolio zu: '
+                    f'<span style="color:#3b82f6;font-weight:600;">{_pf0_disp}</span>'
+                    f' für stabile Qualitätswerte (Core Assets) · '
+                    f'<span style="color:#8b5cf6;font-weight:600;">{_pf1_disp}</span>'
+                    f' für Wachstumswerte (Hidden Champions)</div>',
+                    unsafe_allow_html=True)
                 _pb1, _pb2, _ = st.columns([2.2, 2.2, 5.6])
                 with _pb1:
-                    if st.button(f"Alle → {PORTFOLIO_NAMES[0]}",
+                    if st.button(f"Alle → {_pf0_disp}",
                                  key="btn_pdf_all_p0", use_container_width=True):
                         st.session_state["pf_pdf_assigns"] = {
                             p["isin"]: PORTFOLIO_NAMES[0] for p in _ppos}
                         st.rerun()
                 with _pb2:
-                    if st.button(f"Alle → {PORTFOLIO_NAMES[1]}",
+                    if st.button(f"Alle → {_pf1_disp}",
                                  key="btn_pdf_all_p1", use_container_width=True):
                         st.session_state["pf_pdf_assigns"] = {
                             p["isin"]: PORTFOLIO_NAMES[1] for p in _ppos}
@@ -8060,7 +8126,7 @@ with tab_portfolio:
 
                 # Spaltenheader
                 _phh = st.columns([2.5, 1.1, 1.1, 1.1, 1.6, 1.9])
-                for _phc, _pht in zip(_phh, ["Position","Anteile","Kurs","Wert","Ticker","Portfolio"]):
+                for _phc, _pht in zip(_phh, ["Position","Anteile","Kurs","Wert","Ticker","Zuordnung"]):
                     _phc.markdown(
                         f'<div style="font-size:0.79rem;color:#888;">{_pht}</div>',
                         unsafe_allow_html=True)
@@ -8110,11 +8176,13 @@ with tab_portfolio:
                     with _pc6:
                         _cur6 = st.session_state.get("pf_pdf_assigns",{}).get(
                             _pi6, PORTFOLIO_NAMES[0])
-                        _sel6 = st.selectbox("pf", PORTFOLIO_NAMES,
-                                             index=PORTFOLIO_NAMES.index(_cur6),
+                        _disp_opts6 = [pf_display_name(port_data, pn) for pn in PORTFOLIO_NAMES]
+                        _cur_idx6   = PORTFOLIO_NAMES.index(_cur6) if _cur6 in PORTFOLIO_NAMES else 0
+                        _sel6_disp  = st.selectbox("pf", _disp_opts6,
+                                             index=_cur_idx6,
                                              key=f"pdf_pf_{_pi6}",
                                              label_visibility="collapsed")
-                        _pdf_upd_assigns[_pi6] = _sel6
+                        _pdf_upd_assigns[_pi6] = PORTFOLIO_NAMES[_disp_opts6.index(_sel6_disp)]
 
                 st.markdown("<div style='height:0.6rem'></div>", unsafe_allow_html=True)
 
@@ -8200,7 +8268,9 @@ with tab_portfolio:
                 _mtk  = st.text_input("Ticker (Yahoo)", key="madd_tk2",
                                        placeholder="z.B. ASML.AS, MSFT")
             with _ma2:
-                _mpf  = st.selectbox("Portfolio", PORTFOLIO_NAMES, key="madd_pf2")
+                _mpf_opts = [pf_display_name(port_data, pn) for pn in PORTFOLIO_NAMES]
+                _mpf_disp = st.selectbox("Portfolio", _mpf_opts, key="madd_pf2")
+                _mpf = PORTFOLIO_NAMES[_mpf_opts.index(_mpf_disp)]
                 _mshr = st.number_input("Anteile", min_value=0.0, step=0.0001,
                                          format="%.4f", key="madd_shr2")
             with _ma3:
