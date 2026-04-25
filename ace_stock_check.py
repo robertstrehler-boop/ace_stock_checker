@@ -723,14 +723,28 @@ def enrich_position(pos):
 
 def parse_tr_csv_for_costbasis(csv_bytes: bytes) -> dict:
     """
-    Parst den TR Steuerübersicht-CSV-Export und berechnet investiertes Kapital pro ISIN.
+    Parst den TR Steuerübersicht-CSV-Export und berechnet die Kostenbasis pro ISIN.
 
-    Logik:
-    - BUY:  abs(Summe) wird aufaddiert  → gesamter Kaufbetrag inkl. Gebühren
-    - SELL: Erlöse werden subtrahiert  → vereinfachte Netto-Methode
-    - CORPORATE_ACTION / INTEREST werden ignoriert
+    Algorithmus — Running-Cost-Tracker (chronologisch):
+    ─────────────────────────────────────────────────────
+    1. Sortiere alle Transaktionen je ISIN nach Datum (älteste zuerst).
+    2. BUY:  running_cost += abs(Total)   [pre-fee Betrag, direkte Kaufsumme]
+    3. SELL: cost_sold = abs(Summe) − Gewinn/Verlust   (Erlös − Profit = Einkaufswert der
+             verkauften Stücke).  Falls G/V leer (z.B. Crypto): cost_sold = abs(Summe).
+             running_cost = max(0, running_cost − cost_sold)
+    4. Ergebnis: invested = running_cost  →  Kostenbasis der aktuell gehaltenen Position.
 
-    Returns: {isin: {"invested": float, "name": str, "has_sells": bool, "buy_count": int}}
+    Warum nicht einfach Σ(BUYs)?
+    Beispiel Take-Two: 3 Käufe (50+100+15=165 EUR) + 2 Verkäufe der ersten beiden Positionen.
+    Σ(BUYs)/pdf_shares = 1944 € — völlig falsch.
+    Running-Cost → nach Closes = 0, letzter Kauf = 15 EUR → 15/0.0844 ≈ 177 EUR/Stk ✓
+
+    Warum 'Total' statt 'Summe' für BUY?
+    'Total' = Kurswert (pre-fee), 'Summe' = Total + 1 € TR-Gebühr.
+    avg_price soll den echten Kaufkurs reflektieren, nicht inkl. Ordergebühr.
+
+    Returns: {isin: {"invested": float, "name": str, "has_sells": bool,
+                     "buy_count": int, "avg_price": None}}
     """
     import io
 
@@ -756,93 +770,110 @@ def parse_tr_csv_for_costbasis(csv_bytes: bytes) -> dict:
 
     def _parse_eur(s):
         if not s or str(s).strip() in ("", "-", "nan", "NaN"):
-            return 0.0
+            return None   # explizit None für "leer"
         s = str(s).strip().replace("€", "").replace(" ", "").replace("\u202f", "")
         if "," in s and "." in s:
             s = s.replace(".", "").replace(",", ".")
         elif "," in s:
             s = s.replace(",", ".")
         try:
-            return float(s)
+            v = float(s)
+            return v if v == v else None   # NaN-Guard
         except Exception:
-            return 0.0
+            return None
 
-    # Spaltennamen normalisieren: Groß/Kleinschreibung und Whitespace tolerant
+    # Spaltennamen normalisieren: Groß/Kleinschreibung + Whitespace tolerant
     col_map = {}
     for c in df.columns:
         col_map[c.strip().lower()] = c
     def _col(names):
-        """Gibt den ersten gefundenen Spaltenname zurück."""
         for n in names:
             if n.lower() in col_map:
                 return col_map[n.lower()]
         return None
 
-    col_tx     = _col(["transaktionen", "type", "transaction", "art"])
-    col_isin   = _col(["isin"])
-    col_name   = _col(["name", "titel", "title", "wertpapier"])
-    col_sum    = _col(["summe", "total", "betrag", "amount", "gesamt"])
-    col_shares = _col(["stück", "stueck", "anzahl", "shares", "qty", "quantity", "menge"])
-    col_price  = _col(["kurs", "kurs/stück", "preis", "price", "kurs/stueck"])
+    col_tx    = _col(["transaktionen", "type", "transaction", "art"])
+    col_isin  = _col(["isin"])
+    col_name  = _col(["name", "titel", "title", "wertpapier"])
+    col_date  = _col(["datum", "date", "zeit", "time"])
+    # 'Total' = pre-fee Kurswert; 'Summe' = post-fee Gesamtbetrag
+    col_total = _col(["total"])                                    # pre-fee BUY-Betrag
+    col_summe = _col(["summe", "betrag", "amount", "gesamt"])     # post-fee (für SELL)
+    col_gl    = _col(["gewinn/verlust", "gewinn", "profit", "gain", "p/l"])  # G/V
 
     if not col_tx or not col_isin:
         return {}   # Pflichtfelder fehlen
 
-    result = {}
+    # ── Schritt 1: alle relevanten Zeilen sammeln ──────────────────────────────
+    rows_by_isin: dict = {}
     for _, row in df.iterrows():
         tx   = str(row.get(col_tx, "")).strip().upper()
         isin = str(row.get(col_isin, "")).strip().upper()
-        name = str(row.get(col_name, "")).strip() if col_name else ""
-        if not isin or isin in ("NAN", "") or tx not in ("BUY", "SELL", "KAUF", "VERKAUF"):
+        if not isin or isin in ("NAN", "") or tx not in ("BUY","SELL","KAUF","VERKAUF"):
             continue
-        is_buy  = tx in ("BUY",  "KAUF")
-        is_sell = tx in ("SELL", "VERKAUF")
+        name     = str(row.get(col_name, "")).strip() if col_name else ""
+        date_str = str(row.get(col_date, "")).strip() if col_date else ""
+        is_buy   = tx in ("BUY", "KAUF")
 
-        raw_sum = row.get(col_sum, "0") if col_sum else "0"
-        summe   = _parse_eur(raw_sum)
+        # pre-fee Betrag (Total) → Kaufkurs-Basis; Fallback auf Summe
+        total_val = _parse_eur(str(row.get(col_total, "") or "")) if col_total else None
+        summe_val = _parse_eur(str(row.get(col_summe, "") or "")) if col_summe else None
+        gl_raw    = str(row.get(col_gl, "") or "") if col_gl else ""
+        gl_val    = _parse_eur(gl_raw)
+        has_gl    = (gl_val is not None) and gl_raw.strip() not in ("", "nan", "NaN")
 
-        # Stück + Kurs parsen für VWAP-Berechnung
-        shares_tx = _parse_eur(str(row.get(col_shares, "0") or "0")) if col_shares else 0.0
-        price_tx  = _parse_eur(str(row.get(col_price,  "0") or "0")) if col_price  else 0.0
+        # bevorzuge 'Total' (pre-fee) für den effektiven Kursbetrag
+        amount = abs(total_val) if total_val is not None else (abs(summe_val) if summe_val is not None else 0.0)
+        summe_abs = abs(summe_val) if summe_val is not None else amount
 
-        if isin not in result:
-            result[isin] = {
-                "invested":          0.0,
-                "name":              name,
-                "has_sells":         False,
-                "buy_count":         0,
-                "vwap_cost":         0.0,   # Σ(stück × kurs) für alle BUYs
-                "vwap_shares":       0.0,   # Σ(stück) für alle BUYs
-                "shares_sold":       0.0,
-            }
-        if name and not result[isin]["name"]:
-            result[isin]["name"] = name
+        if isin not in rows_by_isin:
+            rows_by_isin[isin] = {"name": name, "rows": []}
+        if name and not rows_by_isin[isin]["name"]:
+            rows_by_isin[isin]["name"] = name
 
-        if is_buy:
-            result[isin]["invested"]    += abs(summe)
-            result[isin]["buy_count"]   += 1
-            # VWAP-Akkumulation: wenn Stück + Kurs vorhanden, direkt aus Transaktionsdaten
-            if shares_tx > 0 and price_tx > 0:
-                result[isin]["vwap_cost"]   += shares_tx * price_tx
-                result[isin]["vwap_shares"] += shares_tx
-            elif shares_tx > 0 and abs(summe) > 0:
-                # Kurs fehlt → aus Summe ÷ Stück rekonstruieren
-                result[isin]["vwap_cost"]   += abs(summe)
-                result[isin]["vwap_shares"] += shares_tx
-        elif is_sell:
-            result[isin]["has_sells"]   = True
-            result[isin]["shares_sold"] += max(0.0, shares_tx)
-            # Investiertes Kapital: SELL-Erlöse NICHT abziehen —
-            # avg_price kommt direkt aus VWAP der BUYs, nicht aus invested/shares
+        rows_by_isin[isin]["rows"].append({
+            "date":    date_str,
+            "is_buy":  is_buy,
+            "amount":  amount,     # pre-fee → für BUY-Kostenbasis
+            "summe":   summe_abs,  # post-fee → für SELL-Kostenbasis-Berechnung
+            "gl":      gl_val or 0.0,
+            "has_gl":  has_gl,
+        })
 
-    # avg_price aus VWAP berechnen (robuster als invested / pdf_shares)
-    for isin, d in result.items():
-        if d["vwap_shares"] > 0:
-            d["avg_price"] = round(d["vwap_cost"] / d["vwap_shares"], 4)
-        else:
-            d["avg_price"] = None   # nicht berechenbar
+    # ── Schritt 2: Running-Cost-Tracker je ISIN ───────────────────────────────
+    result = {}
+    for isin, data in rows_by_isin.items():
+        # Chronologisch sortieren (ISO-Datum → lexikografisch korrekt)
+        data["rows"].sort(key=lambda r: r["date"])
 
-    return {k: v for k, v in result.items() if v["invested"] > 0.1 or v.get("avg_price")}
+        running_cost = 0.0
+        buy_count    = 0
+        has_sells    = False
+
+        for r in data["rows"]:
+            if r["is_buy"]:
+                running_cost += r["amount"]
+                buy_count    += 1
+            else:
+                has_sells = True
+                if r["has_gl"]:
+                    # Kostenbasis der verkauften Stücke = Erlös (Summe) - Gewinn/Verlust
+                    # Bsp.: Summe=89.08, G/V=-11.92 → Einstandswert=89.08−(−11.92)=101.00
+                    cost_sold = r["summe"] - r["gl"]
+                else:
+                    # G/V unbekannt (Crypto etc.) → Erlös als Kostenbasis annehmen
+                    cost_sold = r["summe"]
+                running_cost = max(0.0, running_cost - cost_sold)
+
+        result[isin] = {
+            "invested":   round(running_cost, 4),
+            "name":       data["name"],
+            "has_sells":  has_sells,
+            "buy_count":  buy_count,
+            "avg_price":  None,   # wird beim Speichern aus invested/pdf_shares berechnet
+        }
+
+    return {k: v for k, v in result.items() if v["invested"] > 0.01}
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
@@ -8854,10 +8885,158 @@ with tab_portfolio:
 
     # ── Portfolio-Übersicht ───────────────────────────────────────────────────
     if not _has_pos and not st.session_state.get("pf_show_setup"):
-        st.markdown(
-            '<div class="ace-placeholder">Noch keine Positionen — '
-            'oben auf "Portfolio einrichten" klicken.</div>',
-            unsafe_allow_html=True)
+        _fresh = st.session_state.get("pf_wiz_fresh_start", False)
+        if _fresh:
+            # ── Onboarding-Card nach Wizard ────────────────────────────────
+            st.markdown("""
+<div style="
+    background: linear-gradient(135deg, #0f1923 0%, #141e2e 60%, #0d1f3c 100%);
+    border: 1px solid rgba(64,180,255,0.18);
+    border-radius: 16px;
+    padding: 2.4rem 2.4rem 2rem 2.4rem;
+    margin: 0.6rem 0 1.2rem 0;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.35);
+    position: relative;
+    overflow: hidden;
+">
+  <!-- Decorative glow -->
+  <div style="
+      position:absolute; top:-60px; right:-60px;
+      width:260px; height:260px;
+      background: radial-gradient(circle, rgba(64,180,255,0.10) 0%, transparent 70%);
+      pointer-events:none;
+  "></div>
+
+  <!-- Headline -->
+  <div style="margin-bottom:1.6rem;">
+    <div style="font-size:1.05rem; color:#40b4ff; font-weight:600; letter-spacing:0.04em; margin-bottom:0.35rem;">
+      ✓ Alles eingerichtet
+    </div>
+    <div style="font-size:1.65rem; font-weight:700; color:#eaf2ff; line-height:1.25;">
+      So startest du mit Velox
+    </div>
+    <div style="font-size:0.93rem; color:#7a9bc0; margin-top:0.5rem; max-width:540px;">
+      Dein Ziel und dein Portfolio sind gespeichert. In drei Schritten legst du deine erste Position an.
+    </div>
+  </div>
+
+  <!-- 3-Step Flow -->
+  <div style="
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+  ">
+    <!-- Step 1 -->
+    <div style="
+        flex: 1 1 200px;
+        background: rgba(64,180,255,0.07);
+        border: 1px solid rgba(64,180,255,0.18);
+        border-radius: 12px 0 0 12px;
+        padding: 1.2rem 1.3rem;
+        position: relative;
+    ">
+      <div style="font-size:1.7rem; margin-bottom:0.5rem;">🔍</div>
+      <div style="font-size:0.78rem; color:#40b4ff; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:0.3rem;">Schritt 1</div>
+      <div style="font-size:1.0rem; font-weight:700; color:#eaf2ff; margin-bottom:0.4rem;">Aktie analysieren</div>
+      <div style="font-size:0.84rem; color:#7a9bc0; line-height:1.45;">
+        Wechsle zur <strong style="color:#a0c8e8;">Analyse</strong> oder zum <strong style="color:#a0c8e8;">Velox Radar</strong> und entdecke interessante Aktien. Bewerte Qualität, Wachstum und Bewertung in Sekunden.
+      </div>
+      <!-- Arrow -->
+      <div style="
+          display:none;
+          position:absolute; right:-18px; top:50%; transform:translateY(-50%);
+          z-index:2; font-size:1.3rem; color:#40b4ff;
+      ">▶</div>
+    </div>
+
+    <!-- Connector -->
+    <div style="
+        display:flex; align-items:center; justify-content:center;
+        width:36px; flex-shrink:0;
+        background: rgba(64,180,255,0.04);
+        border-top: 1px solid rgba(64,180,255,0.12);
+        border-bottom: 1px solid rgba(64,180,255,0.12);
+        font-size:1.1rem; color:#40b4ff;
+    ">→</div>
+
+    <!-- Step 2 -->
+    <div style="
+        flex: 1 1 200px;
+        background: rgba(64,180,255,0.05);
+        border: 1px solid rgba(64,180,255,0.12);
+        border-left: none; border-right: none;
+        padding: 1.2rem 1.3rem;
+    ">
+      <div style="font-size:1.7rem; margin-bottom:0.5rem;">⭐</div>
+      <div style="font-size:0.78rem; color:#40b4ff; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:0.3rem;">Schritt 2</div>
+      <div style="font-size:1.0rem; font-weight:700; color:#eaf2ff; margin-bottom:0.4rem;">Watchlist anlegen</div>
+      <div style="font-size:0.84rem; color:#7a9bc0; line-height:1.45;">
+        Füge interessante Aktien zur <strong style="color:#a0c8e8;">Watchlist</strong> hinzu. Behalte mehrere Kandidaten im Blick, bevor du kaufst.
+      </div>
+    </div>
+
+    <!-- Connector -->
+    <div style="
+        display:flex; align-items:center; justify-content:center;
+        width:36px; flex-shrink:0;
+        background: rgba(64,180,255,0.04);
+        border-top: 1px solid rgba(64,180,255,0.12);
+        border-bottom: 1px solid rgba(64,180,255,0.12);
+        font-size:1.1rem; color:#40b4ff;
+    ">→</div>
+
+    <!-- Step 3 -->
+    <div style="
+        flex: 1 1 200px;
+        background: rgba(64,180,255,0.07);
+        border: 1px solid rgba(64,180,255,0.18);
+        border-radius: 0 12px 12px 0;
+        padding: 1.2rem 1.3rem;
+    ">
+      <div style="font-size:1.7rem; margin-bottom:0.5rem;">📈</div>
+      <div style="font-size:0.78rem; color:#40b4ff; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:0.3rem;">Schritt 3</div>
+      <div style="font-size:1.0rem; font-weight:700; color:#eaf2ff; margin-bottom:0.4rem;">Ins Portfolio buchen</div>
+      <div style="font-size:0.84rem; color:#7a9bc0; line-height:1.45;">
+        Klicke in der <strong style="color:#a0c8e8;">Watchlist</strong> auf „Ins Portfolio" und trage Kaufkurs und Stückzahl ein. Fertig — dein Portfolio trackt ab jetzt automatisch.
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA-Hinweis -->
+  <div style="font-size:0.82rem; color:#4a6a88; text-align:center; margin-bottom:0; font-style:italic;">
+    Tipp: Du kannst jederzeit auch direkt eine Aktie über "Position hinzufügen" manuell eintragen.
+  </div>
+
+</div>
+""", unsafe_allow_html=True)
+
+            # CTA Buttons
+            _ob_c1, _ob_c2, _ob_c3 = st.columns([1, 1, 1])
+            with _ob_c1:
+                if st.button("▶  Erste Aktie analysieren", key="onboard_analyse_btn",
+                             use_container_width=True, type="primary"):
+                    st.session_state["_auto_switch_to_analyse"] = True
+                    st.session_state.pop("pf_wiz_fresh_start", None)
+                    st.rerun()
+            with _ob_c2:
+                if st.button("◎  Zum Velox Radar", key="onboard_radar_btn",
+                             use_container_width=True):
+                    st.session_state["_auto_switch_to_radar"] = True
+                    st.session_state.pop("pf_wiz_fresh_start", None)
+                    st.rerun()
+            with _ob_c3:
+                if st.button("＋  Position manuell hinzufügen", key="onboard_manual_btn",
+                             use_container_width=True):
+                    st.session_state["pf_show_add"] = True
+                    st.session_state.pop("pf_wiz_fresh_start", None)
+                    st.rerun()
+        else:
+            st.markdown(
+                '<div class="ace-placeholder">Noch keine Positionen — '
+                'oben auf "Portfolio einrichten" klicken.</div>',
+                unsafe_allow_html=True)
 
     for pname in PORTFOLIO_NAMES:
         pdata     = port_data.get(pname, {})
