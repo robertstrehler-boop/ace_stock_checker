@@ -7641,524 +7641,522 @@ with tab_portfolio:
         _wiz_step = st.session_state.get("pf_wiz_step", 0 if not _any_goals else 99)
 
         if _wiz_step < 99:
-            # ── Progress Dots ─────────────────────────────────────────────────
-            _total_steps = 7
-            _dots = "".join([
-                f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;'
-                f'background:{"#10b981" if i <= _wiz_step else "rgba(128,128,128,0.2)"};'
-                f'margin:0 3px;"></span>'
-                for i in range(_total_steps)
-            ])
-            st.markdown(
-                f'<div style="text-align:center;margin-bottom:1.2rem;">{_dots}</div>',
-                unsafe_allow_html=True)
-
-            # ── Dicts vorab definieren (für alle Steps verfügbar) ─────────────
+            # ── Gemeinsame Options-Dicts ──────────────────────────────────────
             _ziel_opts = {
-                "Vermögensaufbau": "Langfristig Kapital aufbauen — für Freiheit, große Anschaffungen oder die nächste Generation.",
-                "Altersvorsorge":  "Für den Ruhestand vorsorgen — unabhängig von staatlicher Rente mit eigenem Puffer.",
-                "Dividendeneinkommen": "Regelmäßige Ausschüttungen als passives Einkommen — Dividenden die monatlich fließen.",
-                "Hidden Champions": "Nischenmarktführer entdecken — überdurchschnittliche Rendite durch unbekannte Qualitätswerte.",
-                "Kapitalerhalt":   "Kaufkraft erhalten und leicht wachsen — sicher und stabil, ohne großes Risiko.",
+                "Vermögensaufbau":    "Langfristig Kapital aufbauen — für Freiheit, große Anschaffungen oder die nächste Generation.",
+                "Altersvorsorge":     "Für den Ruhestand vorsorgen — unabhängig von staatlicher Rente mit eigenem Puffer.",
+                "Dividendeneinkommen":"Regelmäßige Ausschüttungen als passives Einkommen — Dividenden die monatlich fließen.",
+                "Hidden Champions":   "Nischenmarktführer entdecken — überdurchschnittliche Rendite durch unbekannte Qualitätswerte.",
+                "Kapitalerhalt":      "Kaufkraft erhalten und leicht wachsen — sicher und stabil, ohne großes Risiko.",
             }
             _risk_opts = {
-                "Konservativ": {
-                    "desc": "Lieber weniger Rendite als schlechte Nächte. Schwankungen machen mir Sorgen.",
-                    "ca": 70, "hc": 10, "etf": 20,
-                    "hint": "Viel ETF-Basis, wenige Einzelaktien"
-                },
-                "Ausgewogen": {
-                    "desc": "Rendite und Stabilität in Balance. Ich akzeptiere gelegentliche Rücksetzer.",
-                    "ca": 50, "hc": 20, "etf": 30,
-                    "hint": "Gute Mischung aus ETF + Qualitätsaktien"
-                },
-                "Wachstum": {
-                    "desc": "Maximale Rendite ist das Ziel. Ich bleibe ruhig auch bei -30%.",
-                    "ca": 40, "hc": 40, "etf": 20,
-                    "hint": "Mehr Einzelaktien, mehr Chancen und Risiken"
-                }
+                "Konservativ": {"desc": "Lieber weniger Rendite als schlechte Nächte. Schwankungen machen mir Sorgen.", "ca": 70, "hc": 10, "etf": 20, "hint": "Viel ETF-Basis, wenige Einzelaktien"},
+                "Ausgewogen":  {"desc": "Rendite und Stabilität in Balance. Ich akzeptiere gelegentliche Rücksetzer.", "ca": 50, "hc": 20, "etf": 30, "hint": "Gute Mischung aus ETF + Qualitätsaktien"},
+                "Wachstum":    {"desc": "Maximale Rendite ist das Ziel. Ich bleibe ruhig auch bei -30%.",             "ca": 40, "hc": 40, "etf": 20, "hint": "Mehr Einzelaktien, mehr Chancen"},
             }
 
-            # ── Step 0: Willkommen ────────────────────────────────────────────
-            if _wiz_step == 0:
-                st.markdown(
-                    '<div style="text-align:center;padding:1rem 0 1.5rem 0;">'
-                    '<div style="font-size:1.5rem;font-weight:800;margin-bottom:0.5rem;">'
-                    'Willkommen bei deinem Velox Depot</div>'
-                    '<div style="font-size:0.9rem;color:var(--text-color);opacity:0.55;'
-                    'line-height:1.7;max-width:480px;margin:0 auto;">'
-                    'Bevor wir loslegen — sag uns kurz was du mit deinem Depot erreichen '
-                    'willst. So können wir dich noch gezielter unterstützen.</div>'
-                    '</div>',
-                    unsafe_allow_html=True)
-                _, _wc, _ = st.columns([1, 2, 1])
-                with _wc:
-                    if st.button("Los geht's →", key="wiz_start",
-                                 use_container_width=True, type="primary"):
-                        st.session_state["pf_wiz_step"] = 1
-                        st.rerun()
+            # ══════════════════════════════════════════════════════════════════
+            # EINSTEIGER WIZARD — 3 Schritte
+            # ══════════════════════════════════════════════════════════════════
+            if _lvl_cur == "beginner":
+                _total_steps = 4
+                _dots = "".join([
+                    f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;'
+                    f'background:{"#10b981" if i <= _wiz_step else "rgba(128,128,128,0.2)"};'
+                    f'margin:0 3px;"></span>'
+                    for i in range(_total_steps)
+                ])
+                st.markdown(f'<div style="text-align:center;margin-bottom:1.2rem;">{_dots}</div>', unsafe_allow_html=True)
 
-            # ── Step 1: Ziel ──────────────────────────────────────────────────
-            elif _wiz_step == 1:
-                st.markdown(
-                    '<div style="font-size:1.1rem;font-weight:700;'
-                    'margin-bottom:1rem;">Was ist dein Ziel?</div>',
-                    unsafe_allow_html=True)
-                _sel_ziel = st.session_state.get("pf_wiz_ziel", "")
-                for _zk, _zv in _ziel_opts.items():
-                    _is_sel = _sel_ziel == _zk
-                    _zbg = "rgba(16,185,129,0.08)" if _is_sel else "var(--secondary-background-color)"
-                    _zbd = "1.5px solid #10b981" if _is_sel else "1px solid rgba(128,128,128,0.14)"
+                # Step 0: Willkommen ──────────────────────────────────────────
+                if _wiz_step == 0:
                     st.markdown(
-                        f'<div style="background:{_zbg};border:{_zbd};border-radius:12px;'
-                        f'padding:0.75rem 1rem;margin-bottom:0.5rem;cursor:pointer;">'
-                        f'<div style="font-weight:600;margin-bottom:0.2rem;">{_zk}</div>'
-                        f'<div style="font-size:0.78rem;color:var(--text-color);opacity:0.55;">{_zv}</div>'
-                        f'</div>',
+                        '<div style="text-align:center;padding:1rem 0 1.5rem 0;">'
+                        '<div style="font-size:1.5rem;font-weight:800;margin-bottom:0.5rem;">Willkommen bei Velox</div>'
+                        '<div style="font-size:0.9rem;color:var(--text-color);opacity:0.55;line-height:1.7;max-width:480px;margin:0 auto;">'
+                        'Lass uns dein Depot in drei Schritten einrichten — damit Velox dir genau die richtigen Aktien zeigt.</div>'
+                        '</div>', unsafe_allow_html=True)
+                    _, _wc, _ = st.columns([1, 2, 1])
+                    with _wc:
+                        if st.button("Los geht's →", key="wiz_b_start", use_container_width=True, type="primary"):
+                            st.session_state["pf_wiz_step"] = 1
+                            st.rerun()
+
+                # Step 1: Hast du bereits Aktien? ─────────────────────────────
+                elif _wiz_step == 1:
+                    st.markdown(
+                        '<div style="font-size:1.1rem;font-weight:700;margin-bottom:0.4rem;">Hast du bereits Aktien?</div>'
+                        '<div style="font-size:0.82rem;color:var(--text-color);opacity:0.5;margin-bottom:1.2rem;line-height:1.6;">'
+                        'Falls du schon investiert bist, können wir dein bestehendes Depot importieren.</div>',
                         unsafe_allow_html=True)
-                    if st.button(f"✓ {_zk}", key=f"wiz_ziel_{_zk}",
-                                 use_container_width=True,
-                                 type="primary" if _is_sel else "secondary"):
-                        st.session_state["pf_wiz_ziel"] = _zk
-                        st.rerun()
-                if _sel_ziel:
-                    _, _wnc, _ = st.columns([1, 2, 1])
-                    with _wnc:
-                        if st.button("Weiter →", key="wiz_1_next",
-                                     use_container_width=True):
+                    _ba, _bb = st.columns(2)
+                    with _ba:
+                        st.markdown(
+                            '<div style="background:var(--secondary-background-color);border:1px solid rgba(128,128,128,0.14);'
+                            'border-radius:14px;padding:1.2rem 1.1rem;text-align:center;min-height:120px;">'
+                            '<div style="font-size:1.5rem;margin-bottom:0.4rem;">📈</div>'
+                            '<div style="font-weight:700;margin-bottom:0.3rem;">Ja, ich habe schon Aktien</div>'
+                            '<div style="font-size:0.75rem;color:var(--text-color);opacity:0.5;line-height:1.4;">'
+                            'Ich möchte mein Depot importieren.</div></div>', unsafe_allow_html=True)
+                        if st.button("Depot importieren →", key="wiz_b_has_yes", use_container_width=True, type="primary"):
+                            st.session_state["pf_wiz_has_stocks"] = True
                             st.session_state["pf_wiz_step"] = 2
                             st.rerun()
-
-            # ── Step 2: Laufzeit ──────────────────────────────────────────────
-            elif _wiz_step == 2:
-                st.markdown(
-                    '<div style="font-size:1.1rem;font-weight:700;'
-                    'margin-bottom:1rem;">Wie lange planst du zu investieren?</div>',
-                    unsafe_allow_html=True)
-                _lz_opts = {
-                    "Unter 5 Jahre": "Kurzfristig — du brauchst das Geld möglicherweise bald.",
-                    "5 bis 15 Jahre": "Mittelfristig — genug Zeit für Wachstum, aber nicht ewig.",
-                    "Über 15 Jahre": "Langfristig — der Zinseszins-Effekt arbeitet voll für dich."
-                }
-                _sel_lz = st.session_state.get("pf_wiz_laufzeit", "")
-                _lc1, _lc2, _lc3 = st.columns(3)
-                for _col, (_lk, _lv) in zip([_lc1, _lc2, _lc3], _lz_opts.items()):
-                    _is_sel = _sel_lz == _lk
-                    _lbg = "rgba(16,185,129,0.09)" if _is_sel else "var(--secondary-background-color)"
-                    _lbd = "1.5px solid #10b981" if _is_sel else "1px solid rgba(128,128,128,0.14)"
-                    with _col:
+                    with _bb:
                         st.markdown(
-                            f'<div style="background:{_lbg};border:{_lbd};border-radius:12px;'
-                            f'padding:0.9rem 1rem;text-align:center;min-height:100px;">'
-                            f'<div style="font-weight:700;font-size:0.9rem;">{_lk}</div>'
-                            f'<div style="font-size:0.7rem;color:var(--text-color);'
-                            f'opacity:0.5;margin-top:0.3rem;line-height:1.5;">{_lv}</div>'
-                            f'</div>',
-                            unsafe_allow_html=True)
-                        if st.button(_lk, key=f"wiz_lz_{_lk}",
-                                     use_container_width=True,
-                                     type="primary" if _is_sel else "secondary"):
-                            st.session_state["pf_wiz_laufzeit"] = _lk
+                            '<div style="background:var(--secondary-background-color);border:1px solid rgba(128,128,128,0.14);'
+                            'border-radius:14px;padding:1.2rem 1.1rem;text-align:center;min-height:120px;">'
+                            '<div style="font-size:1.5rem;margin-bottom:0.4rem;">🌱</div>'
+                            '<div style="font-weight:700;margin-bottom:0.3rem;">Ich starte neu</div>'
+                            '<div style="font-size:0.75rem;color:var(--text-color);opacity:0.5;line-height:1.4;">'
+                            'Noch kein Depot — ich fange jetzt an.</div></div>', unsafe_allow_html=True)
+                        if st.button("Neu starten →", key="wiz_b_has_no", use_container_width=True):
+                            st.session_state["pf_wiz_has_stocks"] = False
+                            st.session_state["pf_wiz_step"] = 3
                             st.rerun()
-                if _sel_lz:
+                    st.markdown('<div style="height:0.4rem;"></div>', unsafe_allow_html=True)
+                    if st.button("← Zurück", key="wiz_b_1_back", use_container_width=False):
+                        st.session_state["pf_wiz_step"] = 0
+                        st.rerun()
+
+                # Step 2: Import-Hinweis (nur wenn has_stocks=True) ────────────
+                elif _wiz_step == 2:
+                    st.markdown(
+                        '<div style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;">Depot importieren</div>'
+                        '<div style="font-size:0.82rem;color:var(--text-color);opacity:0.5;margin-bottom:1rem;line-height:1.6;">'
+                        'So bringst du deine bestehenden Positionen in Velox:</div>',
+                        unsafe_allow_html=True)
+                    st.markdown(
+                        '<div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);'
+                        'border-radius:12px;padding:1rem 1.2rem;margin-bottom:1rem;">'
+                        '<div style="font-size:0.85rem;line-height:1.9;">'
+                        '→ <strong>PDF-Import</strong>: Depotaufstellung aus deiner Banking-App hochladen '
+                        '(TR: Konto → Dokumente → Depotaufstellung)<br>'
+                        '→ <strong>CSV-Import</strong>: Transaktionsexport aus Trade Republic für genaue Einstandskurse<br>'
+                        '→ <strong>Manuell</strong>: Ticker, Anzahl und Kaufkurs direkt eingeben'
+                        '</div></div>', unsafe_allow_html=True)
+                    st.info("Der Import-Bereich wartet unten im Portfolio-Tab — nach diesem Setup führen wir dich direkt dorthin.", icon="💡")
                     _wb1, _wb2 = st.columns(2)
                     with _wb1:
-                        if st.button("← Zurück", key="wiz_2_back",
-                                     use_container_width=True):
+                        if st.button("← Zurück", key="wiz_b_2_back", use_container_width=True):
                             st.session_state["pf_wiz_step"] = 1
                             st.rerun()
                     with _wb2:
-                        if st.button("Weiter →", key="wiz_2_next",
-                                     use_container_width=True):
+                        if st.button("Verstanden, weiter →", key="wiz_b_2_next", use_container_width=True, type="primary"):
                             st.session_state["pf_wiz_step"] = 3
                             st.rerun()
 
-            # ── Step 3: Sparrate + Renten-Ziel ───────────────────────────────
-            elif _wiz_step == 3:
-                import math
-                st.markdown(
-                    '<div style="font-size:1.1rem;font-weight:700;margin-bottom:0.3rem;">'
-                    'Deine Zahlen</div>'
-                    '<div style="font-size:0.82rem;color:var(--text-color);opacity:0.5;'
-                    'margin-bottom:1rem;">Optional — je mehr wir wissen, desto besser können wir rechnen.</div>',
-                    unsafe_allow_html=True)
-
-                # Renten-Ziel
-                st.markdown(
-                    '<div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;'
-                    'color:var(--text-color);opacity:0.4;margin-bottom:0.4rem;">'
-                    'Dein Renten-Ziel</div>',
-                    unsafe_allow_html=True)
-                _ra1, _ra2, _ra3 = st.columns(3)
-                with _ra1:
-                    _alter_jetzt = st.number_input(
-                        "Dein aktuelles Alter",
-                        min_value=18, max_value=80, step=1,
-                        value=st.session_state.get("pf_wiz_alter", 35),
-                        key="pf_wiz_alter_inp")
-                    st.session_state["pf_wiz_alter"] = _alter_jetzt
-                with _ra2:
-                    _renten_alter = st.number_input(
-                        "Gewünschtes Rentenalter",
-                        min_value=40, max_value=90, step=1,
-                        value=st.session_state.get("pf_wiz_renten_alter", 67),
-                        key="pf_wiz_renten_alter_inp")
-                    st.session_state["pf_wiz_renten_alter"] = _renten_alter
-                with _ra3:
-                    _monats_rente = st.number_input(
-                        "Monatliche Wunsch-Rente (€)",
-                        min_value=0, max_value=50000, step=100,
-                        value=st.session_state.get("pf_wiz_monats_rente", 2000),
-                        key="pf_wiz_monats_rente_inp",
-                        help="Wie viel möchtest du monatlich aus dem Depot entnehmen?")
-                    st.session_state["pf_wiz_monats_rente"] = _monats_rente
-
-                # Sparrate
-                st.markdown(
-                    '<div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;'
-                    'color:var(--text-color);opacity:0.4;margin:0.8rem 0 0.4rem 0;">'
-                    'Deine Sparrate</div>',
-                    unsafe_allow_html=True)
-                _monatlich = st.number_input(
-                    "Monatliche Sparrate (€)",
-                    min_value=0, max_value=100000, step=50,
-                    value=st.session_state.get("pf_wiz_monatlich", 300),
-                    key="pf_wiz_monatlich_inp")
-                st.session_state["pf_wiz_monatlich"] = _monatlich
-
-                # Berechnung mit Inflationsbereinigung
-                _jahre_bis_rente = max(_renten_alter - _alter_jetzt, 1)
-                _inflation   = 0.02          # 2% p.a. angenommen
-                _rendite_nom = 0.07          # 7% nominale Rendite (historisch Aktien)
-                _rendite_real= _rendite_nom - _inflation  # ~5% real
-
-                # Wunsch-Rente in heutigen Euros → Nominalwert bei Rentenbeginn
-                _rente_nominal = _monats_rente * (1 + _inflation) ** _jahre_bis_rente
-
-                # 4%-Regel mit inflationsangepasster Entnahme
-                # SWR (Safe Withdrawal Rate): 4% = 25× Jahresausgaben (nominal bei Rentenbeginn)
-                _zielwert_nominal   = int(_rente_nominal * 12 / 0.04)
-                _zielwert_real_heute = int(_monats_rente * 12 / 0.04)   # Kaufkraft heute
-                st.session_state["pf_wiz_zielwert"] = _zielwert_nominal
-
-                if _monats_rente > 0:
-                    _box_color  = "rgba(16,185,129,0.07)"
-                    _box_border = "rgba(16,185,129,0.2)"
-                    _proj_lines = [
-                        f'Wunsch-Rente: <strong>{_monats_rente:,} € (Kaufkraft heute)</strong> '
-                        f'→ entspricht in {_jahre_bis_rente} Jahren nominal ca. '
-                        f'<strong>{_rente_nominal:,.0f} €/Monat</strong> (2% Inflation).',
-                        f'Benötigtes Depot bei Rentenbeginn: ca. <strong>{_zielwert_nominal:,} €</strong> '
-                        f'(4%-Entnahmeregel, inflationsbereinigt).',
-                    ]
-                    if _monatlich > 0:
-                        # Projektion mit nominaler Rendite (7%) und monatlichen Beiträgen
-                        _rate_mon = _rendite_nom / 12
-                        try:
-                            _n = math.log(1 + (_zielwert_nominal * _rate_mon) / _monatlich) / math.log(1 + _rate_mon)
-                            _jahre_needed = _n / 12
-                            if abs(_jahre_needed - _jahre_bis_rente) < 3:
-                                _proj_lines.append(
-                                    f'Mit <strong>{_monatlich:,} €/Monat</strong> erreichst du das in ca. '
-                                    f'<strong>{_jahre_needed:.0f} Jahren</strong> — gut geplant.')
-                            elif _jahre_needed < _jahre_bis_rente:
-                                _proj_lines.append(
-                                    f'Mit <strong>{_monatlich:,} €/Monat</strong> erreichst du das schon in '
-                                    f'<strong>{_jahre_needed:.0f} Jahren</strong> — früher als geplant.')
-                            else:
-                                _diff = _jahre_needed - _jahre_bis_rente
-                                # Benötigte Sparrate für Ziel in geplanter Zeit
-                                _n_plan = _jahre_bis_rente * 12
-                                _needed_rate = (_zielwert_nominal * _rate_mon) / ((1 + _rate_mon) ** _n_plan - 1)
-                                _proj_lines.append(
-                                    f'Mit {_monatlich:,} €/Monat dauert es ca. <strong>{_jahre_needed:.0f} Jahre</strong> '
-                                    f'— {_diff:.0f} J. länger als geplant. '
-                                    f'Für {_jahre_bis_rente} Jahre brauchst du ~<strong>{_needed_rate:,.0f} €/Monat</strong>.')
-                                _box_color  = "rgba(245,158,11,0.07)"
-                                _box_border = "rgba(245,158,11,0.25)"
-                        except Exception:
-                            pass
-
-                    _proj_lines.append(
-                        f'<span style="font-size:0.72rem;opacity:0.45;">Annahmen: 7% nominale Rendite · '
-                        f'2% Inflation · 4%-Entnahmeregel. Keine Garantie.</span>')
+                # Step 3: Ziel wählen (vereinfacht, 2 Optionen) ───────────────
+                elif _wiz_step == 3:
                     st.markdown(
-                        f'<div style="background:{_box_color};border:1px solid {_box_border};'
-                        f'border-radius:10px;padding:0.8rem 1rem;margin-top:0.5rem;">'
-                        + "".join(f'<div style="font-size:0.82rem;line-height:1.65;margin-bottom:0.25rem;">{l}</div>'
-                                  for l in _proj_lines)
-                        + '</div>',
+                        '<div style="font-size:1.1rem;font-weight:700;margin-bottom:0.4rem;">Was ist dein Ziel?</div>'
+                        '<div style="font-size:0.82rem;color:var(--text-color);opacity:0.5;margin-bottom:1rem;line-height:1.6;">'
+                        'Wähle das Ziel das am besten zu dir passt — Velox filtert dann passende Aktien für dich.</div>',
                         unsafe_allow_html=True)
+                    _b_ziele = {
+                        "Vermögen aufbauen":       ("💰", "Schritt für Schritt Kapital aufbauen — für mehr Freiheit und Sicherheit im Leben."),
+                        "Für die Rente vorsorgen": ("🏖️", "Unabhängig von der staatlichen Rente — selbst vorsorgen und im Alter gut leben."),
+                    }
+                    _sel_bziel = st.session_state.get("pf_wiz_b_ziel", "")
+                    for _bz, (_icon, _desc) in _b_ziele.items():
+                        _is_sel = _sel_bziel == _bz
+                        _zbg = "rgba(16,185,129,0.09)" if _is_sel else "var(--secondary-background-color)"
+                        _zbd = "1.5px solid #10b981" if _is_sel else "1px solid rgba(128,128,128,0.14)"
+                        st.markdown(
+                            f'<div style="background:{_zbg};border:{_zbd};border-radius:12px;'
+                            f'padding:0.9rem 1.1rem;margin-bottom:0.6rem;">'
+                            f'<div style="display:flex;align-items:center;gap:0.7rem;">'
+                            f'<span style="font-size:1.6rem;">{_icon}</span>'
+                            f'<div><div style="font-weight:700;font-size:0.95rem;margin-bottom:0.15rem;">{_bz}</div>'
+                            f'<div style="font-size:0.78rem;color:var(--text-color);opacity:0.55;">{_desc}</div>'
+                            f'</div></div></div>', unsafe_allow_html=True)
+                        if st.button(f"✓ {_bz}" if _is_sel else _bz, key=f"wiz_b_ziel_{_bz}",
+                                     use_container_width=True, type="primary" if _is_sel else "secondary"):
+                            st.session_state["pf_wiz_b_ziel"] = _bz
+                            st.rerun()
+                    _back_step_b = 2 if st.session_state.get("pf_wiz_has_stocks") else 1
+                    if _sel_bziel:
+                        _wb1, _wb2 = st.columns(2)
+                        with _wb1:
+                            if st.button("← Zurück", key="wiz_b_3_back", use_container_width=True):
+                                st.session_state["pf_wiz_step"] = _back_step_b
+                                st.rerun()
+                        with _wb2:
+                            if st.button("Fertig →", key="wiz_b_3_done", use_container_width=True, type="primary"):
+                                _ziel_map_b = {"Vermögen aufbauen": "Vermögensaufbau", "Für die Rente vorsorgen": "Altersvorsorge"}
+                                _goals_b = {
+                                    "ziel":        _ziel_map_b.get(_sel_bziel, _sel_bziel),
+                                    "ziele_multi": [_ziel_map_b.get(_sel_bziel, _sel_bziel)],
+                                    "laufzeit":    "Über 15 Jahre",
+                                    "risiko":      "Ausgewogen",
+                                    "monatlich":   0,
+                                    "zielwert":    0,
+                                    "mode":        "beginner",
+                                    "aufteilung":  {"core_pct": 50, "hc_pct": 20, "etf_pct": 30},
+                                }
+                                for _pn in PORTFOLIO_NAMES:
+                                    port_data.setdefault(_pn, {"positions": [], "snapshots": []})
+                                    port_data[_pn]["goals"] = _goals_b
+                                save_portfolio(port_data)
+                                if st.session_state.get("pf_wiz_has_stocks"):
+                                    st.session_state["pf_wiz_import_hint"] = True
+                                st.session_state["pf_wiz_b_done"]   = True
+                                st.session_state["pf_show_setup"]   = False
+                                st.session_state["pf_wiz_step"]     = 99
+                                st.rerun()
+                    else:
+                        if st.button("← Zurück", key="wiz_b_3_back_nosel", use_container_width=False):
+                            st.session_state["pf_wiz_step"] = _back_step_b
+                            st.rerun()
 
-                _wb1, _wb2 = st.columns(2)
-                with _wb1:
-                    if st.button("← Zurück", key="wiz_3_back", use_container_width=True):
-                        st.session_state["pf_wiz_step"] = 2; st.rerun()
-                with _wb2:
-                    if st.button("Weiter →", key="wiz_3_next", use_container_width=True):
-                        st.session_state["pf_wiz_step"] = 4; st.rerun()
+            # ══════════════════════════════════════════════════════════════════
+            # FORTGESCHRITTENER WIZARD — 7 Schritte
+            # ══════════════════════════════════════════════════════════════════
+            else:
+                _total_steps = 7
+                _dots = "".join([
+                    f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;'
+                    f'background:{"#10b981" if i <= _wiz_step else "rgba(128,128,128,0.2)"};'
+                    f'margin:0 3px;"></span>'
+                    for i in range(_total_steps)
+                ])
+                st.markdown(f'<div style="text-align:center;margin-bottom:1.2rem;">{_dots}</div>', unsafe_allow_html=True)
 
-            # ── Step 4: Risikoprofil ──────────────────────────────────────────
-            elif _wiz_step == 4:
-                st.markdown(
-                    '<div style="font-size:1.1rem;font-weight:700;'
-                    'margin-bottom:1rem;">Wie gehst du mit Schwankungen um?</div>',
-                    unsafe_allow_html=True)
-                _sel_risk = st.session_state.get("pf_wiz_risiko", "")
-                for _rk2, _rv2 in _risk_opts.items():
-                    _is_sel = _sel_risk == _rk2
-                    _rbg = "rgba(16,185,129,0.08)" if _is_sel else "var(--secondary-background-color)"
-                    _rbd = "1.5px solid #10b981" if _is_sel else "1px solid rgba(128,128,128,0.14)"
+                # ── Step 0: Willkommen ───────────────────────────────────────
+                if _wiz_step == 0:
                     st.markdown(
-                        f'<div style="background:{_rbg};border:{_rbd};border-radius:12px;'
-                        f'padding:0.75rem 1rem;margin-bottom:0.5rem;">'
-                        f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                        f'<span style="font-weight:700;">{_rk2}</span>'
-                        f'<span style="font-size:0.65rem;color:#10b981;opacity:0.8;">{_rv2["hint"]}</span>'
-                        f'</div>'
-                        f'<div style="font-size:0.78rem;color:var(--text-color);opacity:0.55;'
-                        f'margin-top:0.2rem;">{_rv2["desc"]}</div>'
-                        f'</div>',
+                        '<div style="text-align:center;padding:1rem 0 1.5rem 0;">'
+                        '<div style="font-size:1.5rem;font-weight:800;margin-bottom:0.5rem;">'
+                        'Willkommen bei deinem Velox Depot</div>'
+                        '<div style="font-size:0.9rem;color:var(--text-color);opacity:0.55;'
+                        'line-height:1.7;max-width:480px;margin:0 auto;">'
+                        'Bevor wir loslegen — sag uns kurz was du mit deinem Depot erreichen '
+                        'willst. So können wir dich noch gezielter unterstützen.</div>'
+                        '</div>', unsafe_allow_html=True)
+                    _, _wc, _ = st.columns([1, 2, 1])
+                    with _wc:
+                        if st.button("Los geht's →", key="wiz_start",
+                                     use_container_width=True, type="primary"):
+                            st.session_state["pf_wiz_step"] = 1
+                            st.rerun()
+
+                # ── Step 1: Bestehendes Depot? ───────────────────────────────
+                elif _wiz_step == 1:
+                    st.markdown(
+                        '<div style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;">Hast du bereits ein Portfolio?</div>'
+                        '<div style="font-size:0.82rem;color:var(--text-color);opacity:0.5;margin-bottom:1.2rem;line-height:1.6;">'
+                        'Wenn du Positionen bei einer Bank oder einem Broker hast, können wir sie importieren.</div>',
                         unsafe_allow_html=True)
-                    if st.button(_rk2, key=f"wiz_risk_{_rk2}",
-                                 use_container_width=True,
-                                 type="primary" if _is_sel else "secondary"):
-                        st.session_state["pf_wiz_risiko"] = _rk2
+                    _opt_a, _opt_b = st.columns(2)
+                    with _opt_a:
+                        st.markdown(
+                            '<div style="background:var(--secondary-background-color);border:1px solid rgba(128,128,128,0.14);border-radius:14px;padding:1.2rem 1.1rem;text-align:center;min-height:130px;">'
+                            '<div style="font-weight:700;margin-bottom:0.3rem;font-size:0.95rem;">Ja, ich habe Positionen</div>'
+                            '<div style="font-size:0.75rem;color:var(--text-color);opacity:0.5;line-height:1.5;">'
+                            'Ich importiere mein bestehendes Depot via PDF oder gebe Positionen manuell ein.</div>'
+                            '</div>', unsafe_allow_html=True)
+                        if st.button("Portfolio importieren →", key="wiz_p_import", use_container_width=True, type="primary"):
+                            st.session_state["pf_wiz_has_stocks"] = True
+                            st.session_state["pf_wiz_import_hint"] = True
+                            st.session_state["pf_wiz_step"] = 2
+                            st.rerun()
+                    with _opt_b:
+                        st.markdown(
+                            '<div style="background:var(--secondary-background-color);border:1px solid rgba(128,128,128,0.14);border-radius:14px;padding:1.2rem 1.1rem;text-align:center;min-height:130px;">'
+                            '<div style="font-weight:700;margin-bottom:0.3rem;font-size:0.95rem;">Ich starte neu</div>'
+                            '<div style="font-size:0.75rem;color:var(--text-color);opacity:0.5;line-height:1.5;">'
+                            'Kein bestehendes Depot — ich möchte erst Aktien entdecken und dann investieren.</div>'
+                            '</div>', unsafe_allow_html=True)
+                        if st.button("Direkt loslegen →", key="wiz_p_fresh", use_container_width=True):
+                            st.session_state["pf_wiz_has_stocks"] = False
+                            st.session_state["pf_wiz_step"] = 2
+                            st.rerun()
+                    st.markdown('<div style="height:0.4rem;"></div>', unsafe_allow_html=True)
+                    if st.button("← Zurück", key="wiz_p_1_back", use_container_width=False):
+                        st.session_state["pf_wiz_step"] = 0
                         st.rerun()
-                if _sel_risk:
+
+                # ── Step 2: Alle Ziele (Multi-Select) ─────────────────────────
+                elif _wiz_step == 2:
+                    st.markdown(
+                        '<div style="font-size:1.1rem;font-weight:700;margin-bottom:0.4rem;">Was sind deine Ziele?</div>'
+                        '<div style="font-size:0.82rem;color:var(--text-color);opacity:0.5;margin-bottom:1rem;line-height:1.6;">'
+                        'Du kannst mehrere Ziele kombinieren — Velox gewichtet dann entsprechend.</div>',
+                        unsafe_allow_html=True)
+                    _sel_ziele = st.session_state.get("pf_wiz_ziele_multi", [])
+                    for _zk, _zv in _ziel_opts.items():
+                        _is_sel = _zk in _sel_ziele
+                        _zbg = "rgba(16,185,129,0.08)" if _is_sel else "var(--secondary-background-color)"
+                        _zbd = "1.5px solid #10b981" if _is_sel else "1px solid rgba(128,128,128,0.14)"
+                        st.markdown(
+                            f'<div style="background:{_zbg};border:{_zbd};border-radius:12px;padding:0.75rem 1rem;margin-bottom:0.5rem;">'
+                            f'<div style="font-weight:600;margin-bottom:0.2rem;">{_zk}</div>'
+                            f'<div style="font-size:0.78rem;color:var(--text-color);opacity:0.55;">{_zv}</div>'
+                            f'</div>', unsafe_allow_html=True)
+                        if st.button(f"✓ {_zk}" if _is_sel else _zk, key=f"wiz_mziel_{_zk}",
+                                     use_container_width=True, type="primary" if _is_sel else "secondary"):
+                            _cur_sel = list(st.session_state.get("pf_wiz_ziele_multi", []))
+                            if _zk in _cur_sel:
+                                _cur_sel.remove(_zk)
+                            else:
+                                _cur_sel.append(_zk)
+                            st.session_state["pf_wiz_ziele_multi"] = _cur_sel
+                            st.rerun()
+                    _sel_ziele_now = st.session_state.get("pf_wiz_ziele_multi", [])
                     _wb1, _wb2 = st.columns(2)
                     with _wb1:
-                        if st.button("← Zurück", key="wiz_4_back", use_container_width=True):
-                            st.session_state["pf_wiz_step"] = 3; st.rerun()
+                        if st.button("← Zurück", key="wiz_2_back_p", use_container_width=True):
+                            st.session_state["pf_wiz_step"] = 1
+                            st.rerun()
                     with _wb2:
-                        if st.button("Ergebnis anzeigen →", key="wiz_4_next",
+                        if _sel_ziele_now:
+                            if st.button("Weiter →", key="wiz_2_next_p", use_container_width=True):
+                                st.session_state["pf_wiz_ziel"] = _sel_ziele_now[0]
+                                st.session_state["pf_wiz_step"] = 3
+                                st.rerun()
+                        else:
+                            st.markdown('<div style="font-size:0.75rem;color:var(--text-color);opacity:0.4;padding-top:0.6rem;text-align:center;">Wähle mindestens ein Ziel</div>', unsafe_allow_html=True)
+
+                # ── Step 3: Laufzeit ──────────────────────────────────────────
+                elif _wiz_step == 3:
+                    _p_sel_ziel = st.session_state.get("pf_wiz_ziel", "")
+                    # Laufzeit-Optionen
+                    st.markdown(
+                        '<div style="font-size:1.1rem;font-weight:700;margin-bottom:1rem;">Wie lange planst du zu investieren?</div>',
+                        unsafe_allow_html=True)
+                    _lz_opts = {
+                        "Unter 5 Jahre": "Kurzfristig — du brauchst das Geld möglicherweise bald.",
+                        "5 bis 15 Jahre": "Mittelfristig — genug Zeit für Wachstum, aber nicht ewig.",
+                        "Über 15 Jahre": "Langfristig — der Zinseszins-Effekt arbeitet voll für dich."
+                    }
+                    _sel_lz = st.session_state.get("pf_wiz_laufzeit", "")
+                    _lc1, _lc2, _lc3 = st.columns(3)
+                    for _col, (_lk, _lv) in zip([_lc1, _lc2, _lc3], _lz_opts.items()):
+                        _is_sel = _sel_lz == _lk
+                        _lbg = "rgba(16,185,129,0.09)" if _is_sel else "var(--secondary-background-color)"
+                        _lbd = "1.5px solid #10b981" if _is_sel else "1px solid rgba(128,128,128,0.14)"
+                        with _col:
+                            st.markdown(
+                                f'<div style="background:{_lbg};border:{_lbd};border-radius:12px;'
+                                f'padding:0.9rem 1rem;text-align:center;min-height:100px;">'
+                                f'<div style="font-weight:700;font-size:0.9rem;">{_lk}</div>'
+                                f'<div style="font-size:0.7rem;color:var(--text-color);opacity:0.5;margin-top:0.3rem;line-height:1.5;">{_lv}</div>'
+                                f'</div>', unsafe_allow_html=True)
+                            if st.button(_lk, key=f"wiz_lz_{_lk}",
+                                         use_container_width=True,
+                                         type="primary" if _is_sel else "secondary"):
+                                st.session_state["pf_wiz_laufzeit"] = _lk
+                                st.rerun()
+                    if _sel_lz:
+                        _wb1, _wb2 = st.columns(2)
+                        with _wb1:
+                            if st.button("← Zurück", key="wiz_3_back_p", use_container_width=True):
+                                st.session_state["pf_wiz_step"] = 2
+                                st.rerun()
+                        with _wb2:
+                            if st.button("Weiter →", key="wiz_3_next_p", use_container_width=True):
+                                st.session_state["pf_wiz_step"] = 4
+                                st.rerun()
+                    else:
+                        if st.button("← Zurück", key="wiz_3_back_nosel_p", use_container_width=False):
+                            st.session_state["pf_wiz_step"] = 2
+                            st.rerun()
+
+                # ── Step 4: Sparrate + Renten-Ziel ────────────────────���───────
+                elif _wiz_step == 4:
+                    import math
+                    st.markdown(
+                        '<div style="font-size:1.1rem;font-weight:700;margin-bottom:0.3rem;">Deine Zahlen</div>'
+                        '<div style="font-size:0.82rem;color:var(--text-color);opacity:0.5;margin-bottom:1rem;">'
+                        'Optional — je mehr wir wissen, desto besser können wir rechnen.</div>',
+                        unsafe_allow_html=True)
+                    st.markdown(
+                        '<div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;'
+                        'color:var(--text-color);opacity:0.4;margin-bottom:0.4rem;">Dein Renten-Ziel</div>',
+                        unsafe_allow_html=True)
+                    _ra1, _ra2, _ra3 = st.columns(3)
+                    with _ra1:
+                        _alter_jetzt = st.number_input("Dein aktuelles Alter", min_value=18, max_value=80, step=1,
+                            value=st.session_state.get("pf_wiz_alter", 35), key="pf_wiz_alter_inp")
+                        st.session_state["pf_wiz_alter"] = _alter_jetzt
+                    with _ra2:
+                        _renten_alter = st.number_input("Gewünschtes Rentenalter", min_value=40, max_value=90, step=1,
+                            value=st.session_state.get("pf_wiz_renten_alter", 67), key="pf_wiz_renten_alter_inp")
+                        st.session_state["pf_wiz_renten_alter"] = _renten_alter
+                    with _ra3:
+                        _monats_rente = st.number_input("Monatliche Wunsch-Rente (€)", min_value=0, max_value=50000, step=100,
+                            value=st.session_state.get("pf_wiz_monats_rente", 2000), key="pf_wiz_monats_rente_inp",
+                            help="Wie viel möchtest du monatlich aus dem Depot entnehmen?")
+                        st.session_state["pf_wiz_monats_rente"] = _monats_rente
+                    st.markdown(
+                        '<div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;'
+                        'color:var(--text-color);opacity:0.4;margin:0.8rem 0 0.4rem 0;">Deine Sparrate</div>',
+                        unsafe_allow_html=True)
+                    _monatlich = st.number_input("Monatliche Sparrate (€)", min_value=0, max_value=100000, step=50,
+                        value=st.session_state.get("pf_wiz_monatlich", 300), key="pf_wiz_monatlich_inp")
+                    st.session_state["pf_wiz_monatlich"] = _monatlich
+                    _jahre_bis_rente = max(_renten_alter - _alter_jetzt, 1)
+                    _inflation = 0.02
+                    _rendite_nom = 0.07
+                    _rente_nominal = _monats_rente * (1 + _inflation) ** _jahre_bis_rente
+                    _zielwert_nominal = int(_rente_nominal * 12 / 0.04)
+                    st.session_state["pf_wiz_zielwert"] = _zielwert_nominal
+                    if _monats_rente > 0:
+                        _box_color = "rgba(16,185,129,0.07)"
+                        _box_border = "rgba(16,185,129,0.2)"
+                        _proj_lines = [
+                            f'Wunsch-Rente: <strong>{_monats_rente:,} € (Kaufkraft heute)</strong> '
+                            f'→ entspricht in {_jahre_bis_rente} Jahren nominal ca. '
+                            f'<strong>{_rente_nominal:,.0f} €/Monat</strong> (2% Inflation).',
+                            f'Benötigtes Depot: ca. <strong>{_zielwert_nominal:,} €</strong> (4%-Entnahmeregel).',
+                        ]
+                        if _monatlich > 0:
+                            _rate_mon = _rendite_nom / 12
+                            try:
+                                _n = math.log(1 + (_zielwert_nominal * _rate_mon) / _monatlich) / math.log(1 + _rate_mon)
+                                _jahre_needed = _n / 12
+                                if abs(_jahre_needed - _jahre_bis_rente) < 3:
+                                    _proj_lines.append(f'Mit <strong>{_monatlich:,} €/Monat</strong> erreichst du das in ca. <strong>{_jahre_needed:.0f} Jahren</strong> — gut geplant.')
+                                elif _jahre_needed < _jahre_bis_rente:
+                                    _proj_lines.append(f'Mit <strong>{_monatlich:,} €/Monat</strong> erreichst du das schon in <strong>{_jahre_needed:.0f} Jahren</strong> — früher als geplant.')
+                                else:
+                                    _diff = _jahre_needed - _jahre_bis_rente
+                                    _n_plan = _jahre_bis_rente * 12
+                                    _needed_rate = (_zielwert_nominal * _rate_mon) / ((1 + _rate_mon) ** _n_plan - 1)
+                                    _proj_lines.append(f'Mit {_monatlich:,} €/Monat dauert es ca. <strong>{_jahre_needed:.0f} Jahre</strong> — {_diff:.0f} J. länger als geplant. Für {_jahre_bis_rente} J. brauchst du ~<strong>{_needed_rate:,.0f} €/Monat</strong>.')
+                                    _box_color = "rgba(245,158,11,0.07)"
+                                    _box_border = "rgba(245,158,11,0.25)"
+                            except Exception:
+                                pass
+                        _proj_lines.append('<span style="font-size:0.72rem;opacity:0.45;">Annahmen: 7% nominale Rendite · 2% Inflation · 4%-Entnahmeregel.</span>')
+                        st.markdown(
+                            f'<div style="background:{_box_color};border:1px solid {_box_border};border-radius:10px;padding:0.8rem 1rem;margin-top:0.5rem;">'
+                            + "".join(f'<div style="font-size:0.82rem;line-height:1.65;margin-bottom:0.25rem;">{l}</div>' for l in _proj_lines)
+                            + '</div>', unsafe_allow_html=True)
+                    _wb1, _wb2 = st.columns(2)
+                    with _wb1:
+                        if st.button("← Zurück", key="wiz_4_back_p", use_container_width=True):
+                            st.session_state["pf_wiz_step"] = 3
+                            st.rerun()
+                    with _wb2:
+                        if st.button("Weiter →", key="wiz_4_next_p", use_container_width=True):
+                            st.session_state["pf_wiz_step"] = 5
+                            st.rerun()
+
+                # ── Step 5: Risikoprofil ───────────────────────────────────────
+                elif _wiz_step == 5:
+                    st.markdown(
+                        '<div style="font-size:1.1rem;font-weight:700;margin-bottom:1rem;">Wie gehst du mit Schwankungen um?</div>',
+                        unsafe_allow_html=True)
+                    _sel_risk = st.session_state.get("pf_wiz_risiko", "")
+                    for _rk2, _rv2 in _risk_opts.items():
+                        _is_sel = _sel_risk == _rk2
+                        _rbg = "rgba(16,185,129,0.08)" if _is_sel else "var(--secondary-background-color)"
+                        _rbd = "1.5px solid #10b981" if _is_sel else "1px solid rgba(128,128,128,0.14)"
+                        st.markdown(
+                            f'<div style="background:{_rbg};border:{_rbd};border-radius:12px;padding:0.75rem 1rem;margin-bottom:0.5rem;">'
+                            f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+                            f'<span style="font-weight:700;">{_rk2}</span>'
+                            f'<span style="font-size:0.65rem;color:#10b981;opacity:0.8;">{_rv2["hint"]}</span>'
+                            f'</div>'
+                            f'<div style="font-size:0.78rem;color:var(--text-color);opacity:0.55;margin-top:0.2rem;">{_rv2["desc"]}</div>'
+                            f'</div>', unsafe_allow_html=True)
+                        if st.button(_rk2, key=f"wiz_risk_{_rk2}",
+                                     use_container_width=True,
+                                     type="primary" if _is_sel else "secondary"):
+                            st.session_state["pf_wiz_risiko"] = _rk2
+                            st.rerun()
+                    if _sel_risk:
+                        _wb1, _wb2 = st.columns(2)
+                        with _wb1:
+                            if st.button("← Zurück", key="wiz_5_back_p", use_container_width=True):
+                                st.session_state["pf_wiz_step"] = 4
+                                st.rerun()
+                        with _wb2:
+                            if st.button("Ergebnis anzeigen →", key="wiz_5_next_p",
+                                         use_container_width=True, type="primary"):
+                                st.session_state["pf_wiz_step"] = 6
+                                st.rerun()
+                    else:
+                        if st.button("← Zurück", key="wiz_5_back_nosel_p", use_container_width=False):
+                            st.session_state["pf_wiz_step"] = 4
+                            st.rerun()
+
+                # ── Step 6: Profil-Übersicht + Portfolios benennen + Abschluss ─
+                elif _wiz_step == 6:
+                    _ziel_p      = st.session_state.get("pf_wiz_ziel", "Vermögensaufbau")
+                    _ziele_multi = st.session_state.get("pf_wiz_ziele_multi", [_ziel_p])
+                    _lz_p        = st.session_state.get("pf_wiz_laufzeit", "Über 15 Jahre")
+                    _mon_p       = st.session_state.get("pf_wiz_monatlich", 0)
+                    _zv_p        = st.session_state.get("pf_wiz_zielwert", 0)
+                    _risk_p      = st.session_state.get("pf_wiz_risiko", "Ausgewogen")
+                    _risk_d_p    = _risk_opts.get(_risk_p, _risk_opts["Ausgewogen"])
+                    _ziele_str   = " · ".join(_ziele_multi) if _ziele_multi else _ziel_p
+
+                    st.markdown('<div style="font-size:1.1rem;font-weight:700;margin-bottom:0.8rem;">Dein persönliches Depot-Profil</div>', unsafe_allow_html=True)
+
+                    # Profil-Card
+                    st.markdown(
+                        f'<div style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.22);border-radius:14px;padding:1.1rem 1.3rem;margin-bottom:1rem;">'
+                        f'<div style="font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:#10b981;margin-bottom:0.5rem;">Velox Übersicht</div>'
+                        f'<div style="font-size:0.88rem;line-height:1.7;color:var(--text-color);">Ziele: <strong>{_ziele_str}</strong> · Horizont: <strong>{_lz_p}</strong> · Profil: <strong>{_risk_p}</strong></div>'
+                        f'<div style="display:flex;gap:1rem;margin-top:0.8rem;flex-wrap:wrap;">'
+                        f'<div style="text-align:center;flex:1;min-width:80px;"><div style="font-size:1.4rem;font-weight:800;color:#10b981;">{_risk_d_p["ca"]}%</div><div style="font-size:0.65rem;opacity:0.6;">Core Assets</div></div>'
+                        f'<div style="text-align:center;flex:1;min-width:80px;"><div style="font-size:1.4rem;font-weight:800;color:#8b5cf6;">{_risk_d_p["hc"]}%</div><div style="font-size:0.65rem;opacity:0.6;">Hidden Champions</div></div>'
+                        f'<div style="text-align:center;flex:1;min-width:80px;"><div style="font-size:1.4rem;font-weight:800;color:#f59e0b;">{_risk_d_p["etf"]}%</div><div style="font-size:0.65rem;opacity:0.6;">ETFs</div></div>'
+                        f'</div></div>', unsafe_allow_html=True)
+
+                    # Portfolios benennen
+                    st.markdown('<div style="font-size:0.88rem;font-weight:600;margin-bottom:0.6rem;">Wie heißen deine Portfolios?</div>', unsafe_allow_html=True)
+                    _pf1_default = pf_display_name(port_data, PORTFOLIO_NAMES[0])
+                    _pf2_default = pf_display_name(port_data, PORTFOLIO_NAMES[1])
+                    _nc1, _nc2 = st.columns(2)
+                    with _nc1:
+                        st.markdown('<div style="font-size:0.6rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#3b82f6;margin-bottom:0.25rem;">Core Assets</div>', unsafe_allow_html=True)
+                        _pf1_name = st.text_input("Name Portfolio 1", value=_pf1_default,
+                            key="wiz_pf1_name", label_visibility="collapsed",
+                            max_chars=30, placeholder="z.B. Quiet Compounder")
+                    with _nc2:
+                        st.markdown('<div style="font-size:0.6rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#8b5cf6;margin-bottom:0.25rem;">Hidden Champions</div>', unsafe_allow_html=True)
+                        _pf2_name = st.text_input("Name Portfolio 2", value=_pf2_default,
+                            key="wiz_pf2_name", label_visibility="collapsed",
+                            max_chars=30, placeholder="z.B. Hidden Champions")
+
+                    _wb1, _wb2 = st.columns(2)
+                    with _wb1:
+                        if st.button("← Zurück", key="wiz_6_back_p", use_container_width=True):
+                            st.session_state["pf_wiz_step"] = 5
+                            st.rerun()
+                    with _wb2:
+                        if st.button("Depot einrichten ✓", key="wiz_6_done_p",
                                      use_container_width=True, type="primary"):
-                            st.session_state["pf_wiz_step"] = 5; st.rerun()
-
-            # ── Step 5: Empfehlung + Abschluss ────────────────────────────────
-            elif _wiz_step == 5:
-                _ziel    = st.session_state.get("pf_wiz_ziel", "Vermögensaufbau")
-                _lz      = st.session_state.get("pf_wiz_laufzeit", "Über 15 Jahre")
-                _mon     = st.session_state.get("pf_wiz_monatlich", 0)
-                _zv      = st.session_state.get("pf_wiz_zielwert", 0)
-                _risk    = st.session_state.get("pf_wiz_risiko", "Ausgewogen")
-                _risk_d  = _risk_opts.get(_risk, _risk_opts["Ausgewogen"])
-
-                st.markdown(
-                    f'<div style="font-size:1.1rem;font-weight:700;margin-bottom:0.8rem;">'
-                    f'Dein persönliches Depot-Profil</div>',
-                    unsafe_allow_html=True)
-
-                # Empfehlung Card
-                st.markdown(
-                    f'<div style="background:rgba(16,185,129,0.07);'
-                    f'border:1px solid rgba(16,185,129,0.22);border-radius:14px;'
-                    f'padding:1.1rem 1.3rem;margin-bottom:1rem;">'
-                    f'<div style="font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;'
-                    f'color:#10b981;margin-bottom:0.5rem;">Velox Übersicht</div>'
-                    f'<div style="font-size:0.88rem;line-height:1.7;color:var(--text-color);">'
-                    f'Für <strong>{_ziel}</strong> mit <strong>{_lz}</strong> Horizont '
-                    f'und <strong>{_risk}</strong>em Profil ergibt folgendes Bild:'
-                    f'</div>'
-                    f'<div style="display:flex;gap:1rem;margin-top:0.8rem;flex-wrap:wrap;">'
-                    f'<div style="text-align:center;flex:1;min-width:80px;">'
-                    f'<div style="font-size:1.4rem;font-weight:800;color:#10b981;">{_risk_d["ca"]}%</div>'
-                    f'<div style="font-size:0.65rem;opacity:0.6;">Core Assets</div></div>'
-                    f'<div style="text-align:center;flex:1;min-width:80px;">'
-                    f'<div style="font-size:1.4rem;font-weight:800;color:#8b5cf6;">{_risk_d["hc"]}%</div>'
-                    f'<div style="font-size:0.65rem;opacity:0.6;">Hidden Champions</div></div>'
-                    f'<div style="text-align:center;flex:1;min-width:80px;">'
-                    f'<div style="font-size:1.4rem;font-weight:800;color:#f59e0b;">{_risk_d["etf"]}%</div>'
-                    f'<div style="font-size:0.65rem;opacity:0.6;">ETFs</div></div>'
-                    f'</div></div>',
-                    unsafe_allow_html=True)
-
-                # Zusammenfassung
-                _sum_items = [
-                    ("Ziel", _ziel), ("Laufzeit", _lz), ("Risikoprofil", _risk),
-                ]
-                if _mon > 0: _sum_items.append(("Monatlich", f"{_mon:,} €"))
-                if _zv  > 0: _sum_items.append(("Zielwert",  f"{_zv:,} €"))
-                _sum_html = "".join([
-                    f'<div style="display:flex;justify-content:space-between;'
-                    f'padding:0.3rem 0;border-bottom:1px solid rgba(128,128,128,0.07);">'
-                    f'<span style="font-size:0.75rem;opacity:0.5;">{k}</span>'
-                    f'<span style="font-size:0.75rem;font-weight:600;">{v}</span></div>'
-                    for k, v in _sum_items
-                ])
-                st.markdown(
-                    f'<div style="background:var(--secondary-background-color);'
-                    f'border-radius:10px;padding:0.75rem 1rem;margin-bottom:1rem;">'
-                    f'{_sum_html}</div>',
-                    unsafe_allow_html=True)
-
-                _wb1, _wb2 = st.columns(2)
-                with _wb1:
-                    if st.button("← Nochmal anpassen", key="wiz_5_back",
-                                 use_container_width=True):
-                        st.session_state["pf_wiz_step"] = 4; st.rerun()
-                with _wb2:
-                    if st.button("Weiter →",
-                                 key="wiz_5_done",
-                                 use_container_width=True, type="primary"):
-                        # Ziele im Portfolio JSON speichern
-                        _goals = {
-                            "ziel": _ziel, "laufzeit": _lz,
-                            "risiko": _risk, "monatlich": _mon,
-                            "zielwert": _zv,
-                            "aufteilung": {
-                                "core_pct": _risk_d["ca"],
-                                "hc_pct": _risk_d["hc"],
-                                "etf_pct": _risk_d["etf"],
+                            _goals_p = {
+                                "ziel":        _ziel_p,
+                                "ziele_multi": _ziele_multi,
+                                "laufzeit":    _lz_p,
+                                "risiko":      _risk_p,
+                                "monatlich":   _mon_p,
+                                "zielwert":    _zv_p,
+                                "mode":        "pro",
+                                "aufteilung":  {
+                                    "core_pct": _risk_d_p["ca"],
+                                    "hc_pct":   _risk_d_p["hc"],
+                                    "etf_pct":  _risk_d_p["etf"],
+                                },
                             }
-                        }
-                        for _pn in PORTFOLIO_NAMES:
-                            port_data.setdefault(_pn, {"positions": [], "snapshots": []})
-                            port_data[_pn]["goals"] = _goals
-                        save_portfolio(port_data)
-                        st.session_state["pf_wiz_step"] = 6
-                        st.rerun()
-
-            # ── Step 6: Portfolios benennen ───────────────────────────────────
-            elif _wiz_step == 6:
-                _pf1_default = pf_display_name(port_data, PORTFOLIO_NAMES[0])
-                _pf2_default = pf_display_name(port_data, PORTFOLIO_NAMES[1])
-                st.markdown(
-                    '<div style="font-size:1.1rem;font-weight:700;margin-bottom:0.4rem;">'
-                    'Wie heißen deine Portfolios?</div>'
-                    '<div style="font-size:0.82rem;color:var(--text-color);opacity:0.5;'
-                    'margin-bottom:1.2rem;line-height:1.6;">'
-                    'Velox arbeitet mit zwei Portfolios: eines für stabile Qualitätswerte '
-                    '(Core Assets) und eines für wachstumsstarke Nischenwerte (Hidden Champions). '
-                    'Gib ihnen einen Namen der zu dir passt.</div>',
-                    unsafe_allow_html=True)
-
-                _nc1, _nc2 = st.columns(2)
-                with _nc1:
-                    st.markdown(
-                        '<div style="font-size:0.6rem;font-weight:700;letter-spacing:0.14em;'
-                        'text-transform:uppercase;color:#3b82f6;margin-bottom:0.25rem;">'
-                        'Core Assets Portfolio</div>'
-                        '<div style="font-size:0.73rem;color:var(--text-color);opacity:0.45;'
-                        'margin-bottom:0.4rem;">Qualitäts-Aktien · stabile Compounder</div>',
-                        unsafe_allow_html=True)
-                    _pf1_name = st.text_input(
-                        "Name Portfolio 1", value=_pf1_default,
-                        key="wiz_pf1_name", label_visibility="collapsed",
-                        max_chars=30, placeholder="z.B. Quiet Compounder")
-                with _nc2:
-                    st.markdown(
-                        '<div style="font-size:0.6rem;font-weight:700;letter-spacing:0.14em;'
-                        'text-transform:uppercase;color:#8b5cf6;margin-bottom:0.25rem;">'
-                        'Hidden Champions Portfolio</div>'
-                        '<div style="font-size:0.73rem;color:var(--text-color);opacity:0.45;'
-                        'margin-bottom:0.4rem;">Nischenmarktführer · Wachstum</div>',
-                        unsafe_allow_html=True)
-                    _pf2_name = st.text_input(
-                        "Name Portfolio 2", value=_pf2_default,
-                        key="wiz_pf2_name", label_visibility="collapsed",
-                        max_chars=30, placeholder="z.B. Hidden Champions")
-
-                _wb1, _wb2 = st.columns(2)
-                with _wb1:
-                    if st.button("← Zurück", key="wiz_6_back_naming",
-                                 use_container_width=True):
-                        st.session_state["pf_wiz_step"] = 5; st.rerun()
-                with _wb2:
-                    if st.button("Weiter →", key="wiz_6_name_next",
-                                 use_container_width=True, type="primary"):
-                        _n1 = (_pf1_name or "").strip() or PORTFOLIO_NAMES[0]
-                        _n2 = (_pf2_name or "").strip() or PORTFOLIO_NAMES[1]
-                        port_data = pf_set_display_name(port_data, PORTFOLIO_NAMES[0], _n1)
-                        port_data = pf_set_display_name(port_data, PORTFOLIO_NAMES[1], _n2)
-                        st.session_state["pf_wiz_step"] = 7
-                        st.rerun()
-
-            # ── Step 7: Hast du bereits ein Portfolio? ────────────────────────
-            elif _wiz_step == 7:
-                st.markdown(
-                    '<div style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;">'
-                    'Hast du bereits ein Portfolio?</div>'
-                    '<div style="font-size:0.82rem;color:var(--text-color);opacity:0.5;'
-                    'margin-bottom:1.2rem;line-height:1.6;">'
-                    'Wenn du Positionen bei einer Bank oder einem Broker hast, '
-                    'können wir sie importieren. Oder du startest direkt mit der '
-                    'Analyse und dem Radar.</div>',
-                    unsafe_allow_html=True)
-
-                _opt_a, _opt_b = st.columns(2)
-                with _opt_a:
-                    st.markdown(
-                        '<div style="background:var(--secondary-background-color);'
-                        'border:1px solid rgba(128,128,128,0.14);border-radius:14px;'
-                        'padding:1.2rem 1.1rem;text-align:center;min-height:130px;">'
-                        '<div style="font-weight:700;margin-bottom:0.3rem;font-size:0.95rem;">'
-                        'Ja, ich habe Positionen</div>'
-                        '<div style="font-size:0.75rem;color:var(--text-color);opacity:0.5;'
-                        'line-height:1.5;">'
-                        'Ich importiere mein bestehendes Depot via PDF oder gebe '
-                        'Positionen manuell ein.</div>'
-                        '</div>',
-                        unsafe_allow_html=True)
-                    if st.button("Portfolio importieren →", key="wiz_6_import",
-                                 use_container_width=True, type="primary"):
-                        st.session_state["pf_wiz_step"] = 99
-                        st.session_state["pf_wiz_import_hint"] = True
-                        st.rerun()
-
-                with _opt_b:
-                    st.markdown(
-                        '<div style="background:var(--secondary-background-color);'
-                        'border:1px solid rgba(128,128,128,0.14);border-radius:14px;'
-                        'padding:1.2rem 1.1rem;text-align:center;min-height:130px;">'
-                        '<div style="font-weight:700;margin-bottom:0.3rem;font-size:0.95rem;">'
-                        'Ich starte neu</div>'
-                        '<div style="font-size:0.75rem;color:var(--text-color);opacity:0.5;'
-                        'line-height:1.5;">'
-                        'Kein bestehendes Depot — ich möchte erst Aktien entdecken '
-                        'und dann investieren.</div>'
-                        '</div>',
-                        unsafe_allow_html=True)
-                    if st.button("Direkt loslegen →", key="wiz_6_fresh",
-                                 use_container_width=True):
-                        st.session_state["pf_wiz_step"] = 99
-                        st.session_state["pf_show_setup"] = False
-                        st.session_state["pf_wiz_fresh_start"] = True
-                        st.rerun()
-
-                # Nach "Direkt loslegen": Orientierungskarte
-                if st.session_state.get("pf_wiz_fresh_start"):
-                    st.markdown(
-                        '<div style="background:rgba(16,185,129,0.06);'
-                        'border:1px solid rgba(16,185,129,0.2);border-radius:12px;'
-                        'padding:1rem 1.2rem;margin-top:0.8rem;">'
-                        '<div style="font-weight:600;margin-bottom:0.5rem;">Was jetzt?</div>'
-                        '<div style="font-size:0.82rem;color:var(--text-color);'
-                        'opacity:0.65;line-height:1.7;">'
-                        '→ <strong>Velox Radar</strong>: Entdecke Aktien die zu '
-                        'deinem Profil passen<br>'
-                        '→ <strong>Analyse</strong>: Gib eine Aktie ein und prüfe '
-                        'ob sie zu dir passt<br>'
-                        '→ <strong>Portfolio</strong>: Trage Positionen nach wenn du '
-                        'dich entschieden hast'
-                        '</div></div>',
-                        unsafe_allow_html=True)
-                    _fg1, _fg2 = st.columns(2)
-                    with _fg1:
-                        if st.button("◎ Zum Velox Radar", key="wiz_to_radar",
-                                     use_container_width=True):
-                            st.session_state["_auto_switch_to_radar"] = True
+                            _n1 = (_pf1_name or "").strip() or PORTFOLIO_NAMES[0]
+                            _n2 = (_pf2_name or "").strip() or PORTFOLIO_NAMES[1]
+                            port_data = pf_set_display_name(port_data, PORTFOLIO_NAMES[0], _n1)
+                            port_data = pf_set_display_name(port_data, PORTFOLIO_NAMES[1], _n2)
+                            for _pn in PORTFOLIO_NAMES:
+                                port_data.setdefault(_pn, {"positions": [], "snapshots": []})
+                                port_data[_pn]["goals"] = _goals_p
+                            save_portfolio(port_data)
+                            st.session_state["pf_show_setup"] = False
+                            if not st.session_state.get("pf_wiz_has_stocks"):
+                                st.session_state["pf_wiz_fresh_start"] = True
+                            st.session_state["pf_wiz_step"] = 99
                             st.rerun()
-                    with _fg2:
-                        if st.button("▶ Aktie analysieren", key="wiz_to_analyse",
-                                     use_container_width=True):
-                            st.session_state["_auto_switch_to_analyse"] = True
-                            st.rerun()
-
-                st.markdown('<div style="height:0.5rem;"></div>', unsafe_allow_html=True)
-                if st.button("← Zurück", key="wiz_7_back", use_container_width=False):
-                    st.session_state["pf_wiz_step"] = 6
-                    st.rerun()
 
             st.divider()
 
@@ -8168,28 +8166,62 @@ with tab_portfolio:
                 (port_data.get(pn, {}).get("goals") for pn in PORTFOLIO_NAMES
                  if port_data.get(pn, {}).get("goals")), {})
             if _saved_goals:
-                _rec = _saved_goals.get("empfehlung", {})
+                # Ziele anzeigen: multi-select wenn vorhanden
+                _sg_mode    = _saved_goals.get("mode", "pro")
+                _sg_ziele   = _saved_goals.get("ziele_multi", [_saved_goals.get("ziel", "?")])
+                _sg_risiko  = _saved_goals.get("risiko", "?")
+                _sg_laufzeit = _saved_goals.get("laufzeit", "?")
+                _sg_zielwert = _saved_goals.get("zielwert", 0)
+                _sg_ziele_str = " · ".join(_sg_ziele) if _sg_ziele else _saved_goals.get("ziel", "?")
+                # Für Einsteiger vereinfachte Anzeige
+                if _lvl_cur == "beginner":
+                    _sg_display = _sg_ziele_str
+                    _sg_extra   = ""
+                else:
+                    _sg_display = _sg_ziele_str
+                    _sg_extra   = f' · {_sg_risiko} · {_sg_laufzeit}'
                 st.markdown(
-                    f'<div style="background:rgba(16,185,129,0.05);'
-                    f'border:1px solid rgba(16,185,129,0.15);border-radius:10px;'
+                    f'<div style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.15);border-radius:10px;'
                     f'padding:0.65rem 1rem;margin-bottom:0.6rem;'
                     f'display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">'
                     f'<div>'
-                    f'<span style="font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;'
-                    f'color:#10b981;margin-right:0.5rem;">Dein Profil:</span>'
-                    f'<span style="font-size:0.82rem;font-weight:600;">'
-                    f'{_saved_goals.get("ziel","?")} · {_saved_goals.get("risiko","?")} · '
-                    f'{_saved_goals.get("laufzeit","?")}</span>'
+                    f'<span style="font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;color:#10b981;margin-right:0.5rem;">Dein Profil:</span>'
+                    f'<span style="font-size:0.82rem;font-weight:600;">{_sg_display}{_sg_extra}</span>'
                     f'</div>'
-                    f'<div style="font-size:0.72rem;opacity:0.5;cursor:pointer;"'
-                    f'onclick="">Ziel: {_saved_goals.get("zielwert",0):,} €</div>'
-                    f'</div>',
-                    unsafe_allow_html=True)
-                if st.button("Profil ändern", key="wiz_reset",
-                             use_container_width=False):
+                    + (f'<div style="font-size:0.72rem;opacity:0.5;">Ziel: {_sg_zielwert:,} €</div>' if _sg_zielwert and _lvl_cur == "pro" else '')
+                    + f'</div>', unsafe_allow_html=True)
+                if st.button("Profil ändern", key="wiz_reset", use_container_width=False):
                     st.session_state["pf_wiz_step"] = 0
                     st.rerun()
                 st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+
+            # Nach Wizard-Abschluss: "Was jetzt?"-Karte für Neu-Starter
+            if st.session_state.get("pf_wiz_fresh_start") or st.session_state.get("pf_wiz_b_done"):
+                _is_b_done = st.session_state.get("pf_wiz_b_done")
+                _guide_html = (
+                    '<div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);'
+                    'border-radius:12px;padding:1rem 1.2rem;margin-bottom:0.8rem;">'
+                    '<div style="font-weight:600;margin-bottom:0.5rem;">✓ Depot eingerichtet — was jetzt?</div>'
+                    '<div style="font-size:0.82rem;color:var(--text-color);opacity:0.65;line-height:1.8;">'
+                    '→ <strong>Velox Radar</strong>: Entdecke Aktien die zu deinem Profil passen<br>'
+                    '→ <strong>Analyse</strong>: Gib eine Aktie ein und prüfe ob sie zu dir passt<br>'
+                    '→ <strong>Portfolio</strong>: Trage Positionen nach wenn du dich entschieden hast'
+                    '</div></div>'
+                )
+                st.markdown(_guide_html, unsafe_allow_html=True)
+                _fg1, _fg2 = st.columns(2)
+                with _fg1:
+                    if st.button("◎ Zum Velox Radar", key="wiz_to_radar", use_container_width=True):
+                        st.session_state.pop("pf_wiz_fresh_start", None)
+                        st.session_state.pop("pf_wiz_b_done", None)
+                        st.session_state["_auto_switch_to_radar"] = True
+                        st.rerun()
+                with _fg2:
+                    if st.button("▶ Aktie analysieren", key="wiz_to_analyse", use_container_width=True):
+                        st.session_state.pop("pf_wiz_fresh_start", None)
+                        st.session_state.pop("pf_wiz_b_done", None)
+                        st.session_state["_auto_switch_to_analyse"] = True
+                        st.rerun()
 
         # ── Onboarding-Hinweis nach Wizard-Abschluss ──────────────────────────
         if st.session_state.get("pf_wiz_import_hint"):
