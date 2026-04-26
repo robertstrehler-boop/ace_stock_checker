@@ -9220,10 +9220,7 @@ with tab_portfolio:
                     st.session_state["pf_wiz_step"]   = 0
                     st.rerun()
         else:
-            st.markdown(
-                '<div class="ace-placeholder">Noch keine Positionen — '
-                'oben auf "Portfolio einrichten" klicken.</div>',
-                unsafe_allow_html=True)
+            pass  # Guide übernimmt die Orientierung
 
     # ── Portfolio Guide — permanent für Einsteiger mit Zielprofil ────────────
     _pg_any_goals = any(port_data.get(pn, {}).get("goals") for pn in PORTFOLIO_NAMES)
