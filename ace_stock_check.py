@@ -8117,94 +8117,181 @@ with tab_portfolio:
                     f'<span style="color:#f59e0b;">Kaufkurs nach Import manuell eintragen</span>'
                     f'</div>', unsafe_allow_html=True)
 
-                # Bulk-Zuweisung mit Display-Namen + Kategorie-Hinweis
-                _pf0_disp = pf_display_name(port_data, PORTFOLIO_NAMES[0])
-                _pf1_disp = pf_display_name(port_data, PORTFOLIO_NAMES[1])
-                st.markdown(
-                    f'<div style="font-size:0.78rem;color:var(--text-color);opacity:0.55;'
-                    f'margin-bottom:0.4rem;line-height:1.6;">'
-                    f'Weise jede Position einem Portfolio zu: '
-                    f'<span style="color:#3b82f6;font-weight:600;">{_pf0_disp}</span>'
-                    f' für stabile Qualitätswerte (Core Assets) · '
-                    f'<span style="color:#8b5cf6;font-weight:600;">{_pf1_disp}</span>'
-                    f' für Wachstumswerte (Hidden Champions)</div>',
-                    unsafe_allow_html=True)
-                _pb1, _pb2, _ = st.columns([2.2, 2.2, 5.6])
-                with _pb1:
-                    if st.button(f"Alle → {_pf0_disp}",
-                                 key="btn_pdf_all_p0", use_container_width=True):
-                        st.session_state["pf_pdf_assigns"] = {
-                            p["isin"]: PORTFOLIO_NAMES[0] for p in _ppos}
-                        st.rerun()
-                with _pb2:
-                    if st.button(f"Alle → {_pf1_disp}",
-                                 key="btn_pdf_all_p1", use_container_width=True):
-                        st.session_state["pf_pdf_assigns"] = {
-                            p["isin"]: PORTFOLIO_NAMES[1] for p in _ppos}
-                        st.rerun()
+                # ── Schritt 1: Mehrere Portfolios? ────────────────────────────
+                _multi_pf = st.session_state.get("pf_pdf_multi_pf")  # None / True / False
 
-                # Spaltenheader
-                _phh = st.columns([2.5, 1.1, 1.1, 1.1, 1.6, 1.9])
-                for _phc, _pht in zip(_phh, ["Position","Anteile","Kurs","Wert","Ticker","Zuordnung"]):
-                    _phc.markdown(
-                        f'<div style="font-size:0.79rem;color:#888;">{_pht}</div>',
+                if _multi_pf is None:
+                    st.markdown(
+                        '<div style="font-size:1rem;font-weight:700;margin-bottom:0.3rem;">'
+                        'M\u00f6chtest du mehrere Portfolios verwalten?</div>'
+                        '<div style="font-size:0.82rem;color:var(--text-color);opacity:0.55;'
+                        'margin-bottom:0.9rem;line-height:1.6;">'
+                        'Wenn ja, kannst du deine Positionen auf zwei Portfolios aufteilen — '
+                        'z.\u00a0B. stabile Kern-Werte und Wachstumswerte getrennt verfolgen.</div>',
                         unsafe_allow_html=True)
+                    _mq1, _mq2, _ = st.columns([2.2, 2.2, 5.6])
+                    with _mq1:
+                        if st.button("Ja, mehrere Portfolios",
+                                     key="btn_multi_pf_yes", use_container_width=True,
+                                     type="primary"):
+                            st.session_state["pf_pdf_multi_pf"] = True
+                            st.rerun()
+                    with _mq2:
+                        if st.button("Nein, ein Portfolio",
+                                     key="btn_multi_pf_no", use_container_width=True):
+                            st.session_state["pf_pdf_multi_pf"] = False
+                            st.session_state["pf_pdf_assigns"] = {
+                                p["isin"]: PORTFOLIO_NAMES[0] for p in _ppos}
+                            st.rerun()
 
-                _pdf_upd_tickers = {}
-                _pdf_upd_assigns = {}
+                else:
+                    # ── Zurück-Link ───────────────────────────────────────────
+                    if st.button("\u2190 Entscheidung \u00e4ndern",
+                                 key="btn_multi_pf_back"):
+                        st.session_state.pop("pf_pdf_multi_pf", None)
+                        st.rerun()
 
-                _pcsv_full = st.session_state.get("pf_pdf_csv_full", {})
-                for _pp6 in _ppos:
-                    _pi6      = _pp6["isin"]
-                    _at6      = _ptk.get(_pi6, "")
-                    _csv6     = _pcsv_full.get(_pi6, {})
-                    _avg6     = _csv6.get("avg_price")
+                    # ── Portfolio-Namen ───────────────────────────────────────
+                    if _multi_pf:
+                        _pf0_default = pf_display_name(port_data, PORTFOLIO_NAMES[0])
+                        _pf1_default = pf_display_name(port_data, PORTFOLIO_NAMES[1])
+                        _pn_c1, _pn_c2, _ = st.columns([2.5, 2.5, 5])
+                        with _pn_c1:
+                            st.markdown(
+                                '<div style="font-size:0.6rem;font-weight:700;letter-spacing:0.12em;'
+                                'text-transform:uppercase;color:#3b82f6;margin-bottom:0.2rem;">'
+                                'Portfolio 1 · Core Assets</div>', unsafe_allow_html=True)
+                            _pf0_name = st.text_input("pf0", value=_pf0_default,
+                                key="pf_pdf_name0", label_visibility="collapsed",
+                                placeholder="z.B. Mein Depot", max_chars=30)
+                        with _pn_c2:
+                            st.markdown(
+                                '<div style="font-size:0.6rem;font-weight:700;letter-spacing:0.12em;'
+                                'text-transform:uppercase;color:#8b5cf6;margin-bottom:0.2rem;">'
+                                'Portfolio 2 · Hidden Champions</div>', unsafe_allow_html=True)
+                            _pf1_name = st.text_input("pf1", value=_pf1_default,
+                                key="pf_pdf_name1", label_visibility="collapsed",
+                                placeholder="z.B. Wachstum", max_chars=30)
+                        _pf0_disp = _pf0_name.strip() or _pf0_default
+                        _pf1_disp = _pf1_name.strip() or _pf1_default
+                        st.markdown('<div style="height:0.3rem;"></div>', unsafe_allow_html=True)
+                        # Bulk-Zuweisung
+                        st.markdown(
+                            f'<div style="font-size:0.78rem;color:var(--text-color);opacity:0.55;'
+                            f'margin-bottom:0.4rem;line-height:1.6;">'
+                            f'Weise jede Position einem Portfolio zu: '
+                            f'<span style="color:#3b82f6;font-weight:600;">{_pf0_disp}</span>'
+                            f' f\u00fcr stabile Qualit\u00e4tswerte · '
+                            f'<span style="color:#8b5cf6;font-weight:600;">{_pf1_disp}</span>'
+                            f' f\u00fcr Wachstumswerte</div>',
+                            unsafe_allow_html=True)
+                        _pb1, _pb2, _ = st.columns([2.2, 2.2, 5.6])
+                        with _pb1:
+                            if st.button(f"Alle \u2192 {_pf0_disp}",
+                                         key="btn_pdf_all_p0", use_container_width=True):
+                                st.session_state["pf_pdf_assigns"] = {
+                                    p["isin"]: PORTFOLIO_NAMES[0] for p in _ppos}
+                                st.rerun()
+                        with _pb2:
+                            if st.button(f"Alle \u2192 {_pf1_disp}",
+                                         key="btn_pdf_all_p1", use_container_width=True):
+                                st.session_state["pf_pdf_assigns"] = {
+                                    p["isin"]: PORTFOLIO_NAMES[1] for p in _ppos}
+                                st.rerun()
+                    else:
+                        # Einzel-Portfolio: nur ein Name
+                        _pf0_default = pf_display_name(port_data, PORTFOLIO_NAMES[0])
+                        st.markdown(
+                            '<div style="font-size:0.6rem;font-weight:700;letter-spacing:0.12em;'
+                            'text-transform:uppercase;color:#10b981;margin-bottom:0.2rem;">'
+                            'Name deines Portfolios</div>', unsafe_allow_html=True)
+                        _pn_c1, _ = st.columns([3, 7])
+                        with _pn_c1:
+                            _pf0_name = st.text_input("pf0s", value=_pf0_default,
+                                key="pf_pdf_name0", label_visibility="collapsed",
+                                placeholder="z.B. Mein Depot", max_chars=30)
+                        _pf0_disp = _pf0_name.strip() or _pf0_default
+                        _pf1_disp = _pf0_disp
+                        st.markdown('<div style="height:0.3rem;"></div>', unsafe_allow_html=True)
 
-                    _pc1,_pc2,_pc3,_pc4,_pc5,_pc6 = st.columns([2.5,1.1,1.1,1.1,1.6,1.9])
-                    with _pc1:
-                        if _avg6:
-                            _avg_badge = (f' · <span style="color:#10b981;font-size:0.76rem;">'
-                                          f'Ø {_avg6:.2f} €</span>')
+                    # ── Tabellen-Header ───────────────────────────────────────
+                    if _multi_pf:
+                        _phh = st.columns([2.5, 1.1, 1.1, 1.1, 1.6, 1.9])
+                        _ph_labels = ["Position","Anteile","Kurs","Wert","Ticker","Zuordnung"]
+                    else:
+                        _phh = st.columns([2.5, 1.1, 1.1, 1.1, 2.2])
+                        _ph_labels = ["Position","Anteile","Kurs","Wert","Ticker"]
+                    for _phc, _pht in zip(_phh, _ph_labels):
+                        _phc.markdown(
+                            f'<div style="font-size:0.79rem;color:#888;">{_pht}</div>',
+                            unsafe_allow_html=True)
+
+                    _pdf_upd_tickers = {}
+                    _pdf_upd_assigns = {}
+
+                    _pcsv_full = st.session_state.get("pf_pdf_csv_full", {})
+                    for _pp6 in _ppos:
+                        _pi6  = _pp6["isin"]
+                        _at6  = _ptk.get(_pi6, "")
+                        _csv6 = _pcsv_full.get(_pi6, {})
+                        _avg6 = _csv6.get("avg_price")
+
+                        if _multi_pf:
+                            _pc1,_pc2,_pc3,_pc4,_pc5,_pc6 = st.columns([2.5,1.1,1.1,1.1,1.6,1.9])
                         else:
-                            _avg_badge = (' · <span style="color:#f59e0b;font-size:0.76rem;">'
-                                          'kein Kurs — CSV hochladen</span>')
-                        st.markdown(
-                            f'<div style="font-size:0.87rem;padding:0.2rem 0;">'
-                            f'<b>{_pp6["name"][:40]}</b>{_avg_badge}<br>'
-                            f'<span style="color:#666;font-size:0.76rem;">{_pi6}</span>'
-                            f'</div>', unsafe_allow_html=True)
-                    with _pc2:
-                        st.markdown(
-                            f'<div style="font-size:0.88rem;padding:0.25rem 0;">'
-                            f'{_pp6["shares"]}</div>', unsafe_allow_html=True)
-                    with _pc3:
-                        _prc6 = _pp6.get("current_price")
-                        st.markdown(
-                            f'<div style="font-size:0.88rem;padding:0.25rem 0;">'
-                            f'{f"{_prc6:.2f}" if _prc6 else "—"}</div>',
-                            unsafe_allow_html=True)
-                    with _pc4:
-                        _cv6 = _pp6.get("current_value")
-                        st.markdown(
-                            f'<div style="font-size:0.88rem;font-weight:600;padding:0.25rem 0;">'
-                            f'{f"{_cv6:,.0f} €" if _cv6 else "—"}</div>',
-                            unsafe_allow_html=True)
-                    with _pc5:
-                        _tk6 = st.text_input("tk", value=_at6,
-                                             key=f"pdf_tk_{_pi6}",
-                                             label_visibility="collapsed",
-                                             placeholder="Ticker…")
-                        _pdf_upd_tickers[_pi6] = _tk6.upper().strip()
-                    with _pc6:
-                        _cur6 = st.session_state.get("pf_pdf_assigns",{}).get(
-                            _pi6, PORTFOLIO_NAMES[0])
-                        _disp_opts6 = [pf_display_name(port_data, pn) for pn in PORTFOLIO_NAMES]
-                        _cur_idx6   = PORTFOLIO_NAMES.index(_cur6) if _cur6 in PORTFOLIO_NAMES else 0
-                        _sel6_disp  = st.selectbox("pf", _disp_opts6,
-                                             index=_cur_idx6,
-                                             key=f"pdf_pf_{_pi6}",
-                                             label_visibility="collapsed")
-                        _pdf_upd_assigns[_pi6] = PORTFOLIO_NAMES[_disp_opts6.index(_sel6_disp)]
+                            _pc1,_pc2,_pc3,_pc4,_pc5 = st.columns([2.5,1.1,1.1,1.1,2.2])
+                            _pc6 = None
+
+                        with _pc1:
+                            if _avg6:
+                                _avg_badge = (f' · <span style="color:#10b981;font-size:0.76rem;">'
+                                              f'\u00d8 {_avg6:.2f} \u20ac</span>')
+                            else:
+                                _avg_badge = (' · <span style="color:#f59e0b;font-size:0.76rem;">'
+                                              'kein Kurs \u2014 CSV hochladen</span>')
+                            st.markdown(
+                                f'<div style="font-size:0.87rem;padding:0.2rem 0;">'
+                                f'<b>{_pp6["name"][:40]}</b>{_avg_badge}<br>'
+                                f'<span style="color:#666;font-size:0.76rem;">{_pi6}</span>'
+                                f'</div>', unsafe_allow_html=True)
+                        with _pc2:
+                            st.markdown(
+                                f'<div style="font-size:0.88rem;padding:0.25rem 0;">'
+                                f'{_pp6["shares"]}</div>', unsafe_allow_html=True)
+                        with _pc3:
+                            _prc6 = _pp6.get("current_price")
+                            _prc6_str = f"{_prc6:.2f}" if _prc6 else "\u2014"
+                            st.markdown(
+                                f'<div style="font-size:0.88rem;padding:0.25rem 0;">'
+                                f'{_prc6_str}</div>',
+                                unsafe_allow_html=True)
+                        with _pc4:
+                            _cv6 = _pp6.get("current_value")
+                            _cv6_str = f"{_cv6:,.0f} \u20ac" if _cv6 else "\u2014"
+                            st.markdown(
+                                f'<div style="font-size:0.88rem;font-weight:600;padding:0.25rem 0;">'
+                                f'{_cv6_str}</div>',
+                                unsafe_allow_html=True)
+                        with _pc5:
+                            _tk6 = st.text_input("tk", value=_at6,
+                                                 key=f"pdf_tk_{_pi6}",
+                                                 label_visibility="collapsed",
+                                                 placeholder="Ticker\u2026")
+                            _pdf_upd_tickers[_pi6] = _tk6.upper().strip()
+                        if _multi_pf and _pc6 is not None:
+                            with _pc6:
+                                _cur6 = st.session_state.get("pf_pdf_assigns",{}).get(
+                                    _pi6, PORTFOLIO_NAMES[0])
+                                _disp_opts6 = [_pf0_disp, _pf1_disp]
+                                _cur_idx6   = PORTFOLIO_NAMES.index(_cur6) if _cur6 in PORTFOLIO_NAMES else 0
+                                _sel6_disp  = st.selectbox("pf", _disp_opts6,
+                                                     index=_cur_idx6,
+                                                     key=f"pdf_pf_{_pi6}",
+                                                     label_visibility="collapsed")
+                                _pdf_upd_assigns[_pi6] = PORTFOLIO_NAMES[
+                                    _disp_opts6.index(_sel6_disp)]
+                        else:
+                            _pdf_upd_assigns[_pi6] = PORTFOLIO_NAMES[0]
 
                 st.markdown("<div style='height:0.6rem'></div>", unsafe_allow_html=True)
 
@@ -8282,11 +8369,19 @@ with tab_portfolio:
                                     "notes":             "",
                                 })
                                 _padd += 1
+                        # Portfolio-Namen speichern
+                        _pdf_n0 = st.session_state.get("pf_pdf_name0", "").strip()
+                        _pdf_n1 = st.session_state.get("pf_pdf_name1", "").strip()
+                        if _pdf_n0:
+                            _pf_fr2 = pf_set_display_name(_pf_fr2, PORTFOLIO_NAMES[0], _pdf_n0)
+                        if _pdf_n1 and st.session_state.get("pf_pdf_multi_pf"):
+                            _pf_fr2 = pf_set_display_name(_pf_fr2, PORTFOLIO_NAMES[1], _pdf_n1)
                         _pf_fr2 = add_portfolio_snapshot(_pf_fr2)
                         save_portfolio(_pf_fr2)
                         port_data = _pf_fr2
                         for _k7 in ["pf_pdf_positions","pf_pdf_tickers",
-                                    "pf_pdf_csv_inv","pf_pdf_csv_full","pf_pdf_assigns"]:
+                                    "pf_pdf_csv_inv","pf_pdf_csv_full","pf_pdf_assigns",
+                                    "pf_pdf_multi_pf","pf_pdf_name0","pf_pdf_name1"]:
                             st.session_state.pop(_k7, None)
                         st.session_state["pf_show_setup"] = False
                         _avg_msg = (f" · {_n_avg7} Kaufkurse aus Transaktionsexport"
@@ -8298,7 +8393,8 @@ with tab_portfolio:
                     if st.button("Abbrechen", key="btn_pdf_cancel",
                                  use_container_width=True):
                         for _k7 in ["pf_pdf_positions","pf_pdf_tickers",
-                                    "pf_pdf_csv_inv","pf_pdf_csv_full","pf_pdf_assigns"]:
+                                    "pf_pdf_csv_inv","pf_pdf_csv_full","pf_pdf_assigns",
+                                    "pf_pdf_multi_pf","pf_pdf_name0","pf_pdf_name1"]:
                             st.session_state.pop(_k7, None)
                         st.session_state["pf_show_setup"] = False
                         st.rerun()
