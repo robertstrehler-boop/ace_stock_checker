@@ -7693,8 +7693,7 @@ with tab_portfolio:
                     with _ba:
                         st.markdown(
                             '<div style="background:var(--secondary-background-color);border:1px solid rgba(128,128,128,0.14);'
-                            'border-radius:14px;padding:1.2rem 1.1rem;text-align:center;min-height:120px;">'
-                            '<div style="font-size:1.5rem;margin-bottom:0.4rem;">📈</div>'
+                            'border-radius:14px;padding:1.2rem 1.1rem;text-align:center;min-height:110px;">'
                             '<div style="font-weight:700;margin-bottom:0.3rem;">Ja, ich habe schon Aktien</div>'
                             '<div style="font-size:0.75rem;color:var(--text-color);opacity:0.5;line-height:1.4;">'
                             'Ich möchte mein Depot importieren.</div></div>', unsafe_allow_html=True)
@@ -7705,12 +7704,11 @@ with tab_portfolio:
                     with _bb:
                         st.markdown(
                             '<div style="background:var(--secondary-background-color);border:1px solid rgba(128,128,128,0.14);'
-                            'border-radius:14px;padding:1.2rem 1.1rem;text-align:center;min-height:120px;">'
-                            '<div style="font-size:1.5rem;margin-bottom:0.4rem;">🌱</div>'
+                            'border-radius:14px;padding:1.2rem 1.1rem;text-align:center;min-height:110px;">'
                             '<div style="font-weight:700;margin-bottom:0.3rem;">Ich starte neu</div>'
                             '<div style="font-size:0.75rem;color:var(--text-color);opacity:0.5;line-height:1.4;">'
                             'Noch kein Depot — ich fange jetzt an.</div></div>', unsafe_allow_html=True)
-                        if st.button("Neu starten →", key="wiz_b_has_no", use_container_width=True):
+                        if st.button("Direkt loslegen →", key="wiz_b_has_no", use_container_width=True):
                             st.session_state["pf_wiz_has_stocks"] = False
                             st.session_state["pf_wiz_step"] = 3
                             st.rerun()
@@ -7735,7 +7733,7 @@ with tab_portfolio:
                         '→ <strong>CSV-Import</strong>: Transaktionsexport aus Trade Republic für genaue Einstandskurse<br>'
                         '→ <strong>Manuell</strong>: Ticker, Anzahl und Kaufkurs direkt eingeben'
                         '</div></div>', unsafe_allow_html=True)
-                    st.info("Der Import-Bereich wartet unten im Portfolio-Tab — nach diesem Setup führen wir dich direkt dorthin.", icon="💡")
+                    st.info("Der Import-Bereich wartet unten im Portfolio-Tab — nach diesem Setup führen wir dich direkt dorthin.")
                     _wb1, _wb2 = st.columns(2)
                     with _wb1:
                         if st.button("← Zurück", key="wiz_b_2_back", use_container_width=True):
@@ -7754,22 +7752,20 @@ with tab_portfolio:
                         'Wähle das Ziel das am besten zu dir passt — Velox filtert dann passende Aktien für dich.</div>',
                         unsafe_allow_html=True)
                     _b_ziele = {
-                        "Vermögen aufbauen":       ("💰", "Schritt für Schritt Kapital aufbauen — für mehr Freiheit und Sicherheit im Leben."),
-                        "Für die Rente vorsorgen": ("🏖️", "Unabhängig von der staatlichen Rente — selbst vorsorgen und im Alter gut leben."),
+                        "Vermögen aufbauen":       "Schritt für Schritt Kapital aufbauen — für mehr Freiheit und Sicherheit im Leben.",
+                        "Für die Rente vorsorgen": "Unabhängig von der staatlichen Rente — selbst vorsorgen und im Alter gut leben.",
                     }
                     _sel_bziel = st.session_state.get("pf_wiz_b_ziel", "")
-                    for _bz, (_icon, _desc) in _b_ziele.items():
+                    for _bz, _desc in _b_ziele.items():
                         _is_sel = _sel_bziel == _bz
                         _zbg = "rgba(16,185,129,0.09)" if _is_sel else "var(--secondary-background-color)"
                         _zbd = "1.5px solid #10b981" if _is_sel else "1px solid rgba(128,128,128,0.14)"
                         st.markdown(
                             f'<div style="background:{_zbg};border:{_zbd};border-radius:12px;'
                             f'padding:0.9rem 1.1rem;margin-bottom:0.6rem;">'
-                            f'<div style="display:flex;align-items:center;gap:0.7rem;">'
-                            f'<span style="font-size:1.6rem;">{_icon}</span>'
-                            f'<div><div style="font-weight:700;font-size:0.95rem;margin-bottom:0.15rem;">{_bz}</div>'
+                            f'<div style="font-weight:700;font-size:0.95rem;margin-bottom:0.15rem;">{_bz}</div>'
                             f'<div style="font-size:0.78rem;color:var(--text-color);opacity:0.55;">{_desc}</div>'
-                            f'</div></div></div>', unsafe_allow_html=True)
+                            f'</div>', unsafe_allow_html=True)
                         if st.button(f"✓ {_bz}" if _is_sel else _bz, key=f"wiz_b_ziel_{_bz}",
                                      use_container_width=True, type="primary" if _is_sel else "secondary"):
                             st.session_state["pf_wiz_b_ziel"] = _bz
@@ -7843,38 +7839,30 @@ with tab_portfolio:
                 # ── Step 1: Bestehendes Depot? ───────────────────────────────
                 elif _wiz_step == 1:
                     st.markdown(
-                        '<div style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;">Hast du bereits ein Portfolio?</div>'
-                        '<div style="font-size:0.82rem;color:var(--text-color);opacity:0.5;margin-bottom:1.2rem;line-height:1.6;">'
-                        'Wenn du Positionen bei einer Bank oder einem Broker hast, können wir sie importieren.</div>',
+                        '<div style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;">Dein Depot importieren</div>'
+                        '<div style="font-size:0.82rem;color:var(--text-color);opacity:0.5;margin-bottom:1rem;line-height:1.6;">'
+                        'Wir importieren dein bestehendes Depot — so siehst du sofort wie sich deine Positionen entwickeln.</div>',
                         unsafe_allow_html=True)
-                    _opt_a, _opt_b = st.columns(2)
-                    with _opt_a:
-                        st.markdown(
-                            '<div style="background:var(--secondary-background-color);border:1px solid rgba(128,128,128,0.14);border-radius:14px;padding:1.2rem 1.1rem;text-align:center;min-height:130px;">'
-                            '<div style="font-weight:700;margin-bottom:0.3rem;font-size:0.95rem;">Ja, ich habe Positionen</div>'
-                            '<div style="font-size:0.75rem;color:var(--text-color);opacity:0.5;line-height:1.5;">'
-                            'Ich importiere mein bestehendes Depot via PDF oder gebe Positionen manuell ein.</div>'
-                            '</div>', unsafe_allow_html=True)
-                        if st.button("Portfolio importieren →", key="wiz_p_import", use_container_width=True, type="primary"):
-                            st.session_state["pf_wiz_has_stocks"] = True
-                            st.session_state["pf_wiz_import_hint"] = True
+                    st.markdown(
+                        '<div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);'
+                        'border-radius:12px;padding:1rem 1.2rem;margin-bottom:1rem;">'
+                        '<div style="font-size:0.85rem;line-height:1.9;">'
+                        '→ <strong>PDF-Import</strong>: Depotaufstellung aus deiner Banking-App '
+                        '(z.B. Trade Republic: Konto → Dokumente → Depotaufstellung)<br>'
+                        '→ <strong>CSV-Import</strong>: Transaktionsexport für genaue Einstandskurse (VWAP-Berechnung)<br>'
+                        '→ <strong>Manuell</strong>: Ticker, Anzahl und Kaufkurs direkt eingeben'
+                        '</div></div>', unsafe_allow_html=True)
+                    st.session_state["pf_wiz_has_stocks"] = True
+                    st.session_state["pf_wiz_import_hint"] = True
+                    _wb1, _wb2 = st.columns(2)
+                    with _wb1:
+                        if st.button("← Zurück", key="wiz_p_1_back", use_container_width=True):
+                            st.session_state["pf_wiz_step"] = 0
+                            st.rerun()
+                    with _wb2:
+                        if st.button("Weiter →", key="wiz_p_import", use_container_width=True, type="primary"):
                             st.session_state["pf_wiz_step"] = 2
                             st.rerun()
-                    with _opt_b:
-                        st.markdown(
-                            '<div style="background:var(--secondary-background-color);border:1px solid rgba(128,128,128,0.14);border-radius:14px;padding:1.2rem 1.1rem;text-align:center;min-height:130px;">'
-                            '<div style="font-weight:700;margin-bottom:0.3rem;font-size:0.95rem;">Ich starte neu</div>'
-                            '<div style="font-size:0.75rem;color:var(--text-color);opacity:0.5;line-height:1.5;">'
-                            'Kein bestehendes Depot — ich möchte erst Aktien entdecken und dann investieren.</div>'
-                            '</div>', unsafe_allow_html=True)
-                        if st.button("Direkt loslegen →", key="wiz_p_fresh", use_container_width=True):
-                            st.session_state["pf_wiz_has_stocks"] = False
-                            st.session_state["pf_wiz_step"] = 2
-                            st.rerun()
-                    st.markdown('<div style="height:0.4rem;"></div>', unsafe_allow_html=True)
-                    if st.button("← Zurück", key="wiz_p_1_back", use_container_width=False):
-                        st.session_state["pf_wiz_step"] = 0
-                        st.rerun()
 
                 # ── Step 2: Alle Ziele (Multi-Select) ─────────────────────────
                 elif _wiz_step == 2:
@@ -7947,6 +7935,8 @@ with tab_portfolio:
                                          type="primary" if _is_sel else "secondary"):
                                 st.session_state["pf_wiz_laufzeit"] = _lk
                                 st.rerun()
+                    # Step 4 (Zahlen) nur wenn Altersvorsorge als Ziel gewählt
+                    _has_av = "Altersvorsorge" in st.session_state.get("pf_wiz_ziele_multi", [])
                     if _sel_lz:
                         _wb1, _wb2 = st.columns(2)
                         with _wb1:
@@ -7955,7 +7945,7 @@ with tab_portfolio:
                                 st.rerun()
                         with _wb2:
                             if st.button("Weiter →", key="wiz_3_next_p", use_container_width=True):
-                                st.session_state["pf_wiz_step"] = 4
+                                st.session_state["pf_wiz_step"] = 4 if _has_av else 5
                                 st.rerun()
                     else:
                         if st.button("← Zurück", key="wiz_3_back_nosel_p", use_container_width=False):
@@ -8066,11 +8056,12 @@ with tab_portfolio:
                                      type="primary" if _is_sel else "secondary"):
                             st.session_state["pf_wiz_risiko"] = _rk2
                             st.rerun()
+                    _has_av_5 = "Altersvorsorge" in st.session_state.get("pf_wiz_ziele_multi", [])
                     if _sel_risk:
                         _wb1, _wb2 = st.columns(2)
                         with _wb1:
                             if st.button("← Zurück", key="wiz_5_back_p", use_container_width=True):
-                                st.session_state["pf_wiz_step"] = 4
+                                st.session_state["pf_wiz_step"] = 4 if _has_av_5 else 3
                                 st.rerun()
                         with _wb2:
                             if st.button("Ergebnis anzeigen →", key="wiz_5_next_p",
@@ -8079,7 +8070,7 @@ with tab_portfolio:
                                 st.rerun()
                     else:
                         if st.button("← Zurück", key="wiz_5_back_nosel_p", use_container_width=False):
-                            st.session_state["pf_wiz_step"] = 4
+                            st.session_state["pf_wiz_step"] = 4 if _has_av_5 else 3
                             st.rerun()
 
                 # ── Step 6: Profil-Übersicht + Portfolios benennen + Abschluss ─
@@ -8195,31 +8186,94 @@ with tab_portfolio:
                     st.rerun()
                 st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
-            # Nach Wizard-Abschluss: "Was jetzt?"-Karte für Neu-Starter
-            if st.session_state.get("pf_wiz_fresh_start") or st.session_state.get("pf_wiz_b_done"):
-                _is_b_done = st.session_state.get("pf_wiz_b_done")
-                _guide_html = (
+            # ── Nach Wizard-Abschluss: Einsteiger 3-Schritt-Guide ─────────────
+            if st.session_state.get("pf_wiz_b_done"):
+                st.markdown(
+                    '<div style="text-align:center;padding:0.5rem 0 1rem 0;">'
+                    '<div style="font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;'
+                    'color:#10b981;margin-bottom:0.5rem;font-weight:700;">✓ Alles eingerichtet</div>'
+                    '<div style="font-size:1.3rem;font-weight:800;margin-bottom:0.35rem;">'
+                    'So legst du deine erste Position an</div>'
+                    '<div style="font-size:0.84rem;color:var(--text-color);opacity:0.5;line-height:1.6;">'
+                    'Dein Ziel und dein Portfolio sind gespeichert — in drei Schritten geht\'s los.</div>'
+                    '</div>', unsafe_allow_html=True)
+                _sc1, _sa1, _sc2, _sa2, _sc3 = st.columns([10, 1, 10, 1, 10])
+                _step_card_style = (
+                    'background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.15);'
+                    'border-radius:12px;padding:1rem 1.1rem;height:100%;'
+                )
+                with _sc1:
+                    st.markdown(
+                        f'<div style="{_step_card_style}">'
+                        '<div style="font-size:0.6rem;letter-spacing:0.14em;text-transform:uppercase;'
+                        'color:#10b981;margin-bottom:0.5rem;font-weight:700;">Schritt 1</div>'
+                        '<div style="font-weight:700;margin-bottom:0.3rem;">Aktie analysieren</div>'
+                        '<div style="font-size:0.78rem;color:var(--text-color);opacity:0.6;line-height:1.6;">'
+                        'Wechsle zur <strong>Analyse</strong> oder zum <strong>Velox Radar</strong> '
+                        'und entdecke interessante Aktien.</div></div>', unsafe_allow_html=True)
+                with _sa1:
+                    st.markdown('<div style="text-align:center;padding-top:2.5rem;opacity:0.3;">→</div>', unsafe_allow_html=True)
+                with _sc2:
+                    st.markdown(
+                        f'<div style="{_step_card_style}">'
+                        '<div style="font-size:0.6rem;letter-spacing:0.14em;text-transform:uppercase;'
+                        'color:#10b981;margin-bottom:0.5rem;font-weight:700;">Schritt 2</div>'
+                        '<div style="font-weight:700;margin-bottom:0.3rem;">Watchlist anlegen</div>'
+                        '<div style="font-size:0.78rem;color:var(--text-color);opacity:0.6;line-height:1.6;">'
+                        'Füge interessante Aktien zur <strong>Watchlist</strong> hinzu und '
+                        'behalte Kandidaten im Blick.</div></div>', unsafe_allow_html=True)
+                with _sa2:
+                    st.markdown('<div style="text-align:center;padding-top:2.5rem;opacity:0.3;">→</div>', unsafe_allow_html=True)
+                with _sc3:
+                    st.markdown(
+                        f'<div style="{_step_card_style}">'
+                        '<div style="font-size:0.6rem;letter-spacing:0.14em;text-transform:uppercase;'
+                        'color:#10b981;margin-bottom:0.5rem;font-weight:700;">Schritt 3</div>'
+                        '<div style="font-weight:700;margin-bottom:0.3rem;">Ins Portfolio buchen</div>'
+                        '<div style="font-size:0.78rem;color:var(--text-color);opacity:0.6;line-height:1.6;">'
+                        'Klicke in der Watchlist auf "Ins Portfolio" — ab jetzt automatisches Tracking.</div></div>',
+                        unsafe_allow_html=True)
+                st.markdown(
+                    '<div style="font-size:0.75rem;text-align:center;opacity:0.4;margin:0.8rem 0;font-style:italic;">'
+                    'Du kannst auch direkt über "Position hinzufügen" manuell eintragen.</div>',
+                    unsafe_allow_html=True)
+                _fg1, _fg2, _fg3 = st.columns(3)
+                with _fg1:
+                    if st.button("► Erste Aktie analysieren", key="wiz_b_to_analyse",
+                                 use_container_width=True, type="primary"):
+                        st.session_state.pop("pf_wiz_b_done", None)
+                        st.session_state["_auto_switch_to_analyse"] = True
+                        st.rerun()
+                with _fg2:
+                    if st.button("◎ Zum Velox Radar", key="wiz_b_to_radar", use_container_width=True):
+                        st.session_state.pop("pf_wiz_b_done", None)
+                        st.session_state["_auto_switch_to_radar"] = True
+                        st.rerun()
+                with _fg3:
+                    if st.button("+ Position manuell hinzufügen", key="wiz_b_manual_pos", use_container_width=True):
+                        st.session_state.pop("pf_wiz_b_done", None)
+                        st.rerun()
+
+            # ── Nach Wizard-Abschluss: Pro "Was jetzt?"-Karte ─────────────────
+            elif st.session_state.get("pf_wiz_fresh_start"):
+                st.markdown(
                     '<div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);'
                     'border-radius:12px;padding:1rem 1.2rem;margin-bottom:0.8rem;">'
-                    '<div style="font-weight:600;margin-bottom:0.5rem;">✓ Depot eingerichtet — was jetzt?</div>'
+                    '<div style="font-weight:600;margin-bottom:0.5rem;">Depot eingerichtet — was jetzt?</div>'
                     '<div style="font-size:0.82rem;color:var(--text-color);opacity:0.65;line-height:1.8;">'
                     '→ <strong>Velox Radar</strong>: Entdecke Aktien die zu deinem Profil passen<br>'
                     '→ <strong>Analyse</strong>: Gib eine Aktie ein und prüfe ob sie zu dir passt<br>'
                     '→ <strong>Portfolio</strong>: Trage Positionen nach wenn du dich entschieden hast'
-                    '</div></div>'
-                )
-                st.markdown(_guide_html, unsafe_allow_html=True)
+                    '</div></div>', unsafe_allow_html=True)
                 _fg1, _fg2 = st.columns(2)
                 with _fg1:
                     if st.button("◎ Zum Velox Radar", key="wiz_to_radar", use_container_width=True):
                         st.session_state.pop("pf_wiz_fresh_start", None)
-                        st.session_state.pop("pf_wiz_b_done", None)
                         st.session_state["_auto_switch_to_radar"] = True
                         st.rerun()
                 with _fg2:
                     if st.button("▶ Aktie analysieren", key="wiz_to_analyse", use_container_width=True):
                         st.session_state.pop("pf_wiz_fresh_start", None)
-                        st.session_state.pop("pf_wiz_b_done", None)
                         st.session_state["_auto_switch_to_analyse"] = True
                         st.rerun()
 
