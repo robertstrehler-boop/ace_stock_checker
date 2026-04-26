@@ -7659,7 +7659,7 @@ with tab_portfolio:
             # EINSTEIGER WIZARD — 3 Schritte
             # ══════════════════════════════════════════════════════════════════
             if _lvl_cur == "beginner":
-                _total_steps = 4
+                _total_steps = 5
                 _dots = "".join([
                     f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;'
                     f'background:{"#10b981" if i <= _wiz_step else "rgba(128,128,128,0.2)"};'
@@ -7778,31 +7778,118 @@ with tab_portfolio:
                                 st.session_state["pf_wiz_step"] = _back_step_b
                                 st.rerun()
                         with _wb2:
-                            if st.button("Fertig →", key="wiz_b_3_done", use_container_width=True, type="primary"):
-                                _ziel_map_b = {"Vermögen aufbauen": "Vermögensaufbau", "Für die Rente vorsorgen": "Altersvorsorge"}
-                                _goals_b = {
-                                    "ziel":        _ziel_map_b.get(_sel_bziel, _sel_bziel),
-                                    "ziele_multi": [_ziel_map_b.get(_sel_bziel, _sel_bziel)],
-                                    "laufzeit":    "Über 15 Jahre",
-                                    "risiko":      "Ausgewogen",
-                                    "monatlich":   0,
-                                    "zielwert":    0,
-                                    "mode":        "beginner",
-                                    "aufteilung":  {"core_pct": 50, "hc_pct": 20, "etf_pct": 30},
-                                }
-                                for _pn in PORTFOLIO_NAMES:
-                                    port_data.setdefault(_pn, {"positions": [], "snapshots": []})
-                                    port_data[_pn]["goals"] = _goals_b
-                                save_portfolio(port_data)
-                                if st.session_state.get("pf_wiz_has_stocks"):
-                                    st.session_state["pf_wiz_import_hint"] = True
-                                st.session_state["pf_wiz_b_done"]   = True
-                                st.session_state["pf_show_setup"]   = False
-                                st.session_state["pf_wiz_step"]     = 99
+                            if st.button("Weiter →", key="wiz_b_3_next", use_container_width=True, type="primary"):
+                                st.session_state["pf_wiz_step"] = 4
                                 st.rerun()
                     else:
                         if st.button("← Zurück", key="wiz_b_3_back_nosel", use_container_width=False):
                             st.session_state["pf_wiz_step"] = _back_step_b
+                            st.rerun()
+
+                # Step 4: Sparrate (+ Rentendetails wenn Altersvorsorge) ──────
+                elif _wiz_step == 4:
+                    import math as _math_b
+                    _sel_bziel_4 = st.session_state.get("pf_wiz_b_ziel", "")
+                    _is_rente_b  = _sel_bziel_4 == "Für die Rente vorsorgen"
+                    st.markdown(
+                        '<div style="font-size:1.1rem;font-weight:700;margin-bottom:0.3rem;">Deine monatliche Sparrate</div>'
+                        '<div style="font-size:0.82rem;color:var(--text-color);opacity:0.5;margin-bottom:1rem;line-height:1.6;">'
+                        'Wie viel möchtest du monatlich zurücklegen?</div>',
+                        unsafe_allow_html=True)
+                    _monatlich_b = st.number_input(
+                        "Monatliche Sparrate (€)", min_value=0, max_value=100000, step=50,
+                        value=st.session_state.get("pf_wiz_b_monatlich", 100),
+                        key="pf_wiz_b_monatlich_inp")
+                    st.session_state["pf_wiz_b_monatlich"] = _monatlich_b
+                    if _is_rente_b:
+                        st.markdown(
+                            '<div style="font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;'
+                            'color:var(--text-color);opacity:0.4;margin:0.9rem 0 0.4rem 0;">Dein Renten-Ziel</div>',
+                            unsafe_allow_html=True)
+                        _rb1, _rb2, _rb3 = st.columns(3)
+                        with _rb1:
+                            _alter_b = st.number_input(
+                                "Dein aktuelles Alter", min_value=18, max_value=80, step=1,
+                                value=st.session_state.get("pf_wiz_b_alter", 35),
+                                key="pf_wiz_b_alter_inp")
+                            st.session_state["pf_wiz_b_alter"] = _alter_b
+                        with _rb2:
+                            _renten_alter_b = st.number_input(
+                                "Gewünschtes Rentenalter", min_value=40, max_value=90, step=1,
+                                value=st.session_state.get("pf_wiz_b_renten_alter", 67),
+                                key="pf_wiz_b_renten_alter_inp")
+                            st.session_state["pf_wiz_b_renten_alter"] = _renten_alter_b
+                        with _rb3:
+                            _wunsch_rente_b = st.number_input(
+                                "Monatliche Wunsch-Rente (€)", min_value=0, max_value=50000, step=100,
+                                value=st.session_state.get("pf_wiz_b_wunsch_rente", 2000),
+                                key="pf_wiz_b_wunsch_rente_inp",
+                                help="Wie viel möchtest du monatlich entnehmen?")
+                            st.session_state["pf_wiz_b_wunsch_rente"] = _wunsch_rente_b
+                        # Mini-Projektion für Einsteiger
+                        _jahre_b = max(_renten_alter_b - _alter_b, 1)
+                        if _wunsch_rente_b > 0 or _monatlich_b > 0:
+                            _rente_nom_b = _wunsch_rente_b * (1.02 ** _jahre_b)
+                            _zielwert_b  = int(_rente_nom_b * 12 / 0.04)
+                            _proj_b = [
+                                f'Zieldepot: ca. <strong>{_zielwert_b:,} €</strong> '
+                                f'(4%-Entnahmeregel · 2% Inflation · {_jahre_b} J.).',
+                            ]
+                            if _monatlich_b > 0 and _zielwert_b > 0:
+                                try:
+                                    _r = 0.07 / 12
+                                    _n_b = _math_b.log(1 + (_zielwert_b * _r) / _monatlich_b) / _math_b.log(1 + _r)
+                                    _j_b = _n_b / 12
+                                    if _j_b <= _jahre_b:
+                                        _proj_b.append(f'Mit <strong>{_monatlich_b:,} €/Monat</strong> erreichst du das in ca. <strong>{_j_b:.0f} Jahren</strong>.')
+                                    else:
+                                        _diff_b = _j_b - _jahre_b
+                                        _proj_b.append(f'Mit <strong>{_monatlich_b:,} €/Monat</strong> dauert es ca. <strong>{_j_b:.0f} J.</strong> — {_diff_b:.0f} J. mehr als geplant.')
+                                except Exception:
+                                    pass
+                            _bx_col = "rgba(16,185,129,0.07)"
+                            _bx_brd = "rgba(16,185,129,0.2)"
+                            st.markdown(
+                                f'<div style="background:{_bx_col};border:1px solid {_bx_brd};'
+                                f'border-radius:10px;padding:0.75rem 1rem;margin-top:0.5rem;">'
+                                + "".join(f'<div style="font-size:0.82rem;line-height:1.65;margin-bottom:0.2rem;">{l}</div>' for l in _proj_b)
+                                + '<div style="font-size:0.72rem;opacity:0.4;margin-top:0.15rem;">7% nominale Rendite · 4%-Entnahmeregel</div>'
+                                + '</div>', unsafe_allow_html=True)
+                    _wb1_4, _wb2_4 = st.columns(2)
+                    with _wb1_4:
+                        if st.button("← Zurück", key="wiz_b_4_back", use_container_width=True):
+                            st.session_state["pf_wiz_step"] = 3
+                            st.rerun()
+                    with _wb2_4:
+                        if st.button("Fertig →", key="wiz_b_4_done", use_container_width=True, type="primary"):
+                            _ziel_map_b4 = {"Vermögen aufbauen": "Vermögensaufbau", "Für die Rente vorsorgen": "Altersvorsorge"}
+                            _goals_b4 = {
+                                "ziel":        _ziel_map_b4.get(_sel_bziel_4, _sel_bziel_4),
+                                "ziele_multi": [_ziel_map_b4.get(_sel_bziel_4, _sel_bziel_4)],
+                                "laufzeit":    "Über 15 Jahre",
+                                "risiko":      "Ausgewogen",
+                                "monatlich":   st.session_state.get("pf_wiz_b_monatlich", 0),
+                                "zielwert":    0,
+                                "mode":        "beginner",
+                                "aufteilung":  {"core_pct": 50, "hc_pct": 20, "etf_pct": 30},
+                            }
+                            if _is_rente_b:
+                                _goals_b4["alter"]        = st.session_state.get("pf_wiz_b_alter", 35)
+                                _goals_b4["renten_alter"] = st.session_state.get("pf_wiz_b_renten_alter", 67)
+                                _goals_b4["wunsch_rente"] = st.session_state.get("pf_wiz_b_wunsch_rente", 2000)
+                                _goals_b4["zielwert"]     = int(st.session_state.get("pf_wiz_b_wunsch_rente", 2000)
+                                                                 * (1.02 ** max(st.session_state.get("pf_wiz_b_renten_alter", 67)
+                                                                                - st.session_state.get("pf_wiz_b_alter", 35), 1))
+                                                                 * 12 / 0.04)
+                            for _pn in PORTFOLIO_NAMES:
+                                port_data.setdefault(_pn, {"positions": [], "snapshots": []})
+                                port_data[_pn]["goals"] = _goals_b4
+                            save_portfolio(port_data)
+                            if st.session_state.get("pf_wiz_has_stocks"):
+                                st.session_state["pf_wiz_import_hint"] = True
+                            st.session_state["pf_wiz_b_done"] = True
+                            st.session_state["pf_show_setup"] = False
+                            st.session_state["pf_wiz_step"]   = 99
                             st.rerun()
 
             # ══════════════════════════════════════════════════════════════════
@@ -9055,7 +9142,8 @@ with tab_portfolio:
 
     # ── Portfolio-Übersicht ───────────────────────────────────────────────────
     if not _has_pos and not st.session_state.get("pf_show_setup"):
-        _fresh = st.session_state.get("pf_wiz_fresh_start", False)
+        _fresh = (st.session_state.get("pf_wiz_fresh_start", False)
+                  or st.session_state.get("pf_wiz_b_done", False))
         if _fresh:
             # ── Onboarding-Card nach Wizard ────────────────────────────────
             # WICHTIG: Kein Einzug im HTML-String! 4+ Leerzeichen = Markdown-Code-Block.
@@ -9097,18 +9185,39 @@ with tab_portfolio:
                              use_container_width=True, type="primary"):
                     st.session_state["_auto_switch_to_analyse"] = True
                     st.session_state.pop("pf_wiz_fresh_start", None)
+                    st.session_state.pop("pf_wiz_b_done", None)
                     st.rerun()
             with _ob_c2:
                 if st.button("◎  Zum Velox Radar", key="onboard_radar_btn",
                              use_container_width=True):
                     st.session_state["_auto_switch_to_radar"] = True
                     st.session_state.pop("pf_wiz_fresh_start", None)
+                    st.session_state.pop("pf_wiz_b_done", None)
                     st.rerun()
             with _ob_c3:
                 if st.button("＋  Position manuell hinzufügen", key="onboard_manual_btn",
                              use_container_width=True):
                     st.session_state["pf_show_add"] = True
                     st.session_state.pop("pf_wiz_fresh_start", None)
+                    st.session_state.pop("pf_wiz_b_done", None)
+                    st.rerun()
+            # ── Profil löschen ─────────────────────────────────────────────────
+            st.markdown('<div style="height:0.4rem;"></div>', unsafe_allow_html=True)
+            _del_c1, _del_c2, _del_c3 = st.columns([2, 1, 2])
+            with _del_c2:
+                if st.button("Profil löschen", key="onboard_del_profil_btn",
+                             use_container_width=True, type="secondary"):
+                    for _pn_d in PORTFOLIO_NAMES:
+                        if "goals" in port_data.get(_pn_d, {}):
+                            del port_data[_pn_d]["goals"]
+                    save_portfolio(port_data)
+                    for _dk in ["pf_wiz_step", "pf_wiz_b_done", "pf_wiz_fresh_start",
+                                "pf_wiz_b_ziel", "pf_wiz_b_monatlich", "pf_wiz_b_alter",
+                                "pf_wiz_b_renten_alter", "pf_wiz_b_wunsch_rente",
+                                "pf_wiz_has_stocks", "pf_wiz_import_hint"]:
+                        st.session_state.pop(_dk, None)
+                    st.session_state["pf_show_setup"] = True
+                    st.session_state["pf_wiz_step"]   = 0
                     st.rerun()
         else:
             st.markdown(
