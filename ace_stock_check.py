@@ -9145,65 +9145,6 @@ with tab_portfolio:
         _fresh = (st.session_state.get("pf_wiz_fresh_start", False)
                   or st.session_state.get("pf_wiz_b_done", False))
         if _fresh:
-            # ── Portfolio Guide (nur Einsteiger) ───────────────────────────
-            if st.session_state.get("pf_wiz_b_done"):
-                st.markdown(
-                    '<div style="font-size:1.25rem;font-weight:800;margin-bottom:0.3rem;">'
-                    'Portfolio Guide für deinen Einstieg</div>'
-                    '<div style="font-size:0.85rem;color:var(--text-color);opacity:0.58;'
-                    'line-height:1.75;max-width:660px;margin-bottom:1.2rem;">'
-                    'Ein Portfolio sollte aus mehreren Bausteinen bestehen, damit es resilient wird '
-                    'und einen langen Atem hat. Du musst nicht sofort die perfekte Aktie finden. '
-                    'Entscheidend ist, dass dein Portfolio eine klare Struktur hat.'
-                    '</div>', unsafe_allow_html=True)
-                _pg1, _pg2, _pg3, _pg4 = st.columns(4)
-                _pg_tiles = [
-                    ("Fundament",   "#1",
-                     "Starte mit einem stabilen Kern",
-                     "Beginne mit breit gestreuten Investments (z.\u00a0B. ETFs). Sie bilden die Basis deines Portfolios und sorgen f\u00fcr langfristige Stabilit\u00e4t.",
-                     "rgba(16,185,129,0.07)", "rgba(16,185,129,0.22)"),
-                    ("Erg\u00e4nzung", "#2",
-                     "Erg\u00e4nze gezielt einzelne Aktien",
-                     "W\u00e4hle Unternehmen, die du verstehst und die sich \u00fcber die Zeit bew\u00e4hrt haben. Vermeide kurzfristige Trends oder Hypes.",
-                     "rgba(59,130,246,0.06)", "rgba(59,130,246,0.22)"),
-                    ("Wachstum",    "#3",
-                     "Setze kleine Impulse f\u00fcr Wachstum",
-                     "Einzelne Chancen k\u00f6nnen dein Portfolio erg\u00e4nzen \u2013 sollten aber nie den gr\u00f6\u00dften Anteil ausmachen. Unsere Hidden Champions.",
-                     "rgba(245,158,11,0.06)", "rgba(245,158,11,0.22)"),
-                    ("Einfachheit", "#4",
-                     "Halte dein Portfolio \u00fcbersichtlich",
-                     "F\u00fcr den Start reichen wenige Positionen. Wichtig ist nicht die Anzahl, sondern die Struktur.",
-                     "rgba(168,85,247,0.06)", "rgba(168,85,247,0.22)"),
-                ]
-                for _pg_col, (_blk, _num, _ttl, _dsc, _bg, _brd) in zip(
-                        [_pg1, _pg2, _pg3, _pg4], _pg_tiles):
-                    with _pg_col:
-                        st.markdown(
-                            f'<div style="background:{_bg};border:1px solid {_brd};'
-                            f'border-radius:14px;padding:1rem 1rem 0.8rem 1rem;min-height:185px;'
-                            f'margin-bottom:0.1rem;">'
-                            f'<div style="font-size:0.6rem;letter-spacing:0.14em;text-transform:uppercase;'
-                            f'color:#10b981;font-weight:700;margin-bottom:0.4rem;">Block {_num} \u00b7 {_blk}</div>'
-                            f'<div style="font-size:0.88rem;font-weight:700;margin-bottom:0.4rem;'
-                            f'line-height:1.35;">{_ttl}</div>'
-                            f'<div style="font-size:0.75rem;color:var(--text-color);opacity:0.6;'
-                            f'line-height:1.55;">{_dsc}</div>'
-                            f'</div>', unsafe_allow_html=True)
-                        if st.button("Im Radar ansehen \u2192", key=f"pg_tile_{_blk}",
-                                     use_container_width=True):
-                            st.session_state["_auto_switch_to_radar"] = True
-                            st.session_state.pop("pf_wiz_b_done", None)
-                            st.session_state.pop("pf_wiz_fresh_start", None)
-                            st.rerun()
-                st.markdown(
-                    '<div style="font-size:0.82rem;color:var(--text-color);opacity:0.48;'
-                    'line-height:1.75;margin:0.8rem 0 1.6rem 0;text-align:center;">'
-                    'Baue zuerst dein Fundament \u2014 und erweitere es Schritt f\u00fcr Schritt. '
-                    'Velox hilft dir dabei, jede Aktie schnell einzuordnen und passende Ideen '
-                    'f\u00fcr dein Portfolio zu entwickeln.'
-                    '</div>', unsafe_allow_html=True)
-                st.divider()
-
             # ── Onboarding-Card nach Wizard ────────────────────────────────
             # WICHTIG: Kein Einzug im HTML-String! 4+ Leerzeichen = Markdown-Code-Block.
             _ob_html = (
@@ -9283,6 +9224,80 @@ with tab_portfolio:
                 '<div class="ace-placeholder">Noch keine Positionen — '
                 'oben auf "Portfolio einrichten" klicken.</div>',
                 unsafe_allow_html=True)
+
+    # ── Portfolio Guide — permanent für Einsteiger mit Zielprofil ────────────
+    _pg_any_goals = any(port_data.get(pn, {}).get("goals") for pn in PORTFOLIO_NAMES)
+    if _lvl_cur == "beginner" and _pg_any_goals and not st.session_state.get("pf_show_setup"):
+        st.markdown(
+            '<div style="font-size:1.2rem;font-weight:800;margin-bottom:0.25rem;">'
+            'Portfolio Guide f\u00fcr deinen Einstieg</div>'
+            '<div style="font-size:0.84rem;color:var(--text-color);opacity:0.55;'
+            'line-height:1.75;max-width:660px;margin-bottom:1.1rem;">'
+            'Ein Portfolio sollte aus mehreren Bausteinen bestehen, damit es resilient wird '
+            'und einen langen Atem hat. Du musst nicht sofort die perfekte Aktie finden \u2014 '
+            'entscheidend ist eine klare Struktur.'
+            '</div>', unsafe_allow_html=True)
+        _pg1, _pg2, _pg3, _pg4 = st.columns(4)
+        # (label, block-num, title, desc, bg, border, radar_query or None)
+        _pg_tiles = [
+            ("Fundament",   "1",
+             "Starte mit einem stabilen Kern",
+             "Beginne mit breit gestreuten Investments (z.\u00a0B. ETFs). Sie bilden die Basis "
+             "deines Portfolios und sorgen f\u00fcr langfristige Stabilit\u00e4t.",
+             "rgba(16,185,129,0.07)", "rgba(16,185,129,0.22)",
+             "stabile Kern-Bausteine f\u00fcr ein langfristiges Portfolio (Aktien, ETFs etc.)"),
+            ("Erg\u00e4nzung",  "2",
+             "Erg\u00e4nze gezielt einzelne Aktien",
+             "W\u00e4hle Unternehmen, die du verstehst und die sich \u00fcber die Zeit "
+             "bew\u00e4hrt haben. Vermeide kurzfristige Trends oder Hypes.",
+             "rgba(59,130,246,0.06)", "rgba(59,130,246,0.22)",
+             "Qualit\u00e4tsaktien, die ein langfristiges Portfolio sinnvoll erg\u00e4nzen k\u00f6nnen"),
+            ("Wachstum",    "3",
+             "Setze kleine Impulse f\u00fcr Wachstum",
+             "Einzelne Chancen k\u00f6nnen dein Portfolio erg\u00e4nzen \u2013 sollten aber "
+             "nie den gr\u00f6\u00dften Anteil ausmachen. Unsere Hidden Champions.",
+             "rgba(245,158,11,0.06)", "rgba(245,158,11,0.22)",
+             "spannende Wachstumsaktien oder Hidden-Champion-Kandidaten"),
+            ("Tipp von uns", "4",
+             "Halte dein Portfolio \u00fcbersichtlich",
+             "F\u00fcr den Start reichen wenige Positionen. Wichtig ist nicht die Anzahl, "
+             "sondern die Struktur.",
+             "rgba(168,85,247,0.06)", "rgba(168,85,247,0.22)",
+             None),   # kein CTA
+        ]
+        for _pg_col, (_blk, _num, _ttl, _dsc, _bg, _brd, _rq) in zip(
+                [_pg1, _pg2, _pg3, _pg4], _pg_tiles):
+            with _pg_col:
+                _is_tip    = _rq is None
+                _tag_color = "#a855f7" if _is_tip else "#10b981"
+                _tag_label = _blk if _is_tip else ("Block " + _num + " \u00b7 " + _blk)
+                st.markdown(
+                    f'<div style="background:{_bg};border:1px solid {_brd};'
+                    f'border-radius:14px;padding:1rem 1rem 0.9rem 1rem;min-height:185px;'
+                    f'margin-bottom:0.15rem;">'
+                    f'<div style="font-size:0.58rem;letter-spacing:0.14em;text-transform:uppercase;'
+                    f'color:{_tag_color};font-weight:700;margin-bottom:0.4rem;">{_tag_label}</div>'
+                    f'<div style="font-size:0.88rem;font-weight:700;margin-bottom:0.4rem;'
+                    f'line-height:1.35;">{_ttl}</div>'
+                    f'<div style="font-size:0.75rem;color:var(--text-color);opacity:0.6;'
+                    f'line-height:1.55;">{_dsc}</div>'
+                    f'</div>', unsafe_allow_html=True)
+                if not _is_tip:
+                    if st.button("Im Radar ansehen \u2192",
+                                 key=f"pg_guide_{_num}",
+                                 use_container_width=True):
+                        st.session_state["ki_radar_query"] = _rq
+                        st.session_state.pop("ki_radar_input", None)
+                        st.session_state["_auto_switch_to_radar"] = True
+                        st.rerun()
+        st.markdown(
+            '<div style="font-size:0.8rem;color:var(--text-color);opacity:0.45;'
+            'line-height:1.75;margin:0.7rem 0 0 0;text-align:center;">'
+            'Baue zuerst dein Fundament \u2014 und erweitere es Schritt f\u00fcr Schritt. '
+            'Velox hilft dir dabei, jede Aktie schnell einzuordnen und passende Ideen '
+            'f\u00fcr dein Portfolio zu entwickeln.'
+            '</div>', unsafe_allow_html=True)
+        st.divider()
 
     for pname in PORTFOLIO_NAMES:
         pdata     = port_data.get(pname, {})
