@@ -46,6 +46,392 @@ ETF_MAP = {
     "SXRV.DE":  {"name": "iShares Core MSCI World",      "region": "Global",   "style": "Blend",  "def_pct": 0.33},
 }
 
+# ══════════════════════════════════════════════════════════════════════════════
+# ETF Statische Referenzdaten — Fallback für europäisch-gelistete ETFs
+# Felder entsprechen den yfinance-Feldnamen für nahtloses Merging.
+# Quellen: Fondsanbieter, justETF, MSCI/FTSE-Factsheets (Referenz Q1 2025)
+# ══════════════════════════════════════════════════════════════════════════════
+ETF_STATIC_DATA = {
+    # ── GLOBAL: MSCI World ────────────────────────────────────────────────────
+    "IWDA.AS": {
+        "expenseRatio": 0.0020, "totalAssets": 82_000_000_000,
+        "threeYearAverageReturn": 0.092, "fiveYearAverageReturn": 0.121,
+        "fundFamily": "iShares / BlackRock", "category": "Global Large Cap Blend · Acc",
+        "numberOfHoldings": 1467, "replication": "Physisch (optimiert)",
+        "alt_tickers": ["EUNL.DE", "IWDA.L"],
+        "holdings": [
+            {"holdingName": "Apple Inc",            "symbol": "AAPL",  "holdingPercent": 0.046},
+            {"holdingName": "Microsoft Corp",        "symbol": "MSFT",  "holdingPercent": 0.042},
+            {"holdingName": "NVIDIA Corp",           "symbol": "NVDA",  "holdingPercent": 0.040},
+            {"holdingName": "Amazon.com Inc",        "symbol": "AMZN",  "holdingPercent": 0.028},
+            {"holdingName": "Meta Platforms A",      "symbol": "META",  "holdingPercent": 0.023},
+            {"holdingName": "Alphabet Inc A",        "symbol": "GOOGL", "holdingPercent": 0.016},
+            {"holdingName": "Alphabet Inc C",        "symbol": "GOOG",  "holdingPercent": 0.014},
+            {"holdingName": "Berkshire Hathaway B",  "symbol": "BRK-B", "holdingPercent": 0.011},
+            {"holdingName": "Tesla Inc",             "symbol": "TSLA",  "holdingPercent": 0.011},
+            {"holdingName": "Eli Lilly & Co",        "symbol": "LLY",   "holdingPercent": 0.009},
+        ],
+        "sectorWeightings": [
+            {"Technology": 0.248}, {"Financials": 0.152}, {"Healthcare": 0.125},
+            {"Consumer Discretionary": 0.108}, {"Industrials": 0.105},
+            {"Communication Services": 0.087}, {"Consumer Staples": 0.069},
+            {"Energy": 0.043}, {"Basic Materials": 0.037}, {"Utilities": 0.026},
+        ],
+        "countryWeightings": [
+            {"United States": 0.702}, {"Japan": 0.058}, {"United Kingdom": 0.041},
+            {"France": 0.033}, {"Canada": 0.032}, {"Switzerland": 0.028},
+            {"Germany": 0.024}, {"Australia": 0.020}, {"Netherlands": 0.013},
+            {"Denmark": 0.010},
+        ],
+    },
+    "EUNL.DE": {"_alias": "IWDA.AS", "expenseRatio": 0.0020,
+                "fundFamily": "iShares / BlackRock", "alt_tickers": ["IWDA.AS", "IWDA.L"]},
+    "SXRV.DE": {"_alias": "IWDA.AS", "expenseRatio": 0.0020,
+                "fundFamily": "iShares / BlackRock", "alt_tickers": ["IWDA.AS"]},
+    "XDWD.DE": {"_alias": "IWDA.AS", "expenseRatio": 0.0019,
+                "totalAssets": 14_000_000_000, "fundFamily": "Xtrackers / DWS",
+                "numberOfHoldings": 1648, "alt_tickers": ["IWDA.AS"]},
+    "HMWO.L":  {"_alias": "IWDA.AS", "expenseRatio": 0.0015,
+                "totalAssets": 10_000_000_000, "fundFamily": "HSBC",
+                "alt_tickers": ["IWDA.AS"]},
+
+    # ── GLOBAL: FTSE All-World ────────────────────────────────────────────────
+    "VWCE.DE": {
+        "expenseRatio": 0.0022, "totalAssets": 22_000_000_000,
+        "threeYearAverageReturn": 0.078, "fiveYearAverageReturn": 0.110,
+        "fundFamily": "Vanguard", "category": "Global All Cap Blend · Acc",
+        "numberOfHoldings": 3698, "replication": "Physisch (optimiert)",
+        "alt_tickers": ["VGWL.DE"],
+        "holdings": [
+            {"holdingName": "Apple Inc",            "symbol": "AAPL",  "holdingPercent": 0.039},
+            {"holdingName": "Microsoft Corp",        "symbol": "MSFT",  "holdingPercent": 0.036},
+            {"holdingName": "NVIDIA Corp",           "symbol": "NVDA",  "holdingPercent": 0.034},
+            {"holdingName": "Amazon.com Inc",        "symbol": "AMZN",  "holdingPercent": 0.024},
+            {"holdingName": "Meta Platforms A",      "symbol": "META",  "holdingPercent": 0.019},
+            {"holdingName": "Alphabet Inc A",        "symbol": "GOOGL", "holdingPercent": 0.014},
+            {"holdingName": "Taiwan Semiconductor",  "symbol": "TSM",   "holdingPercent": 0.012},
+            {"holdingName": "Alphabet Inc C",        "symbol": "GOOG",  "holdingPercent": 0.012},
+            {"holdingName": "Tesla Inc",             "symbol": "TSLA",  "holdingPercent": 0.010},
+            {"holdingName": "Berkshire Hathaway B",  "symbol": "BRK-B", "holdingPercent": 0.009},
+        ],
+        "sectorWeightings": [
+            {"Technology": 0.232}, {"Financials": 0.156}, {"Healthcare": 0.112},
+            {"Consumer Discretionary": 0.103}, {"Industrials": 0.102},
+            {"Communication Services": 0.082}, {"Consumer Staples": 0.070},
+            {"Energy": 0.046}, {"Basic Materials": 0.041},
+            {"Real Estate": 0.028}, {"Utilities": 0.028},
+        ],
+        "countryWeightings": [
+            {"United States": 0.628}, {"Japan": 0.058}, {"United Kingdom": 0.038},
+            {"China": 0.035}, {"France": 0.029}, {"Canada": 0.028},
+            {"India": 0.024}, {"Switzerland": 0.023}, {"Germany": 0.020},
+            {"Taiwan": 0.018},
+        ],
+    },
+    "VGWL.DE": {"_alias": "VWCE.DE", "expenseRatio": 0.0022,
+                "fundFamily": "Vanguard", "alt_tickers": ["VWCE.DE"]},
+
+    # ── USA: S&P 500 ──────────────────────────────────────────────────────────
+    "SXR8.DE": {
+        "expenseRatio": 0.0007, "totalAssets": 60_000_000_000,
+        "threeYearAverageReturn": 0.105, "fiveYearAverageReturn": 0.144,
+        "fundFamily": "iShares / BlackRock", "category": "USA Large Cap Blend · Acc",
+        "numberOfHoldings": 503, "replication": "Physisch (vollständig)",
+        "alt_tickers": ["SPYD.DE"],
+        "holdings": [
+            {"holdingName": "Apple Inc",            "symbol": "AAPL",  "holdingPercent": 0.072},
+            {"holdingName": "Microsoft Corp",        "symbol": "MSFT",  "holdingPercent": 0.063},
+            {"holdingName": "NVIDIA Corp",           "symbol": "NVDA",  "holdingPercent": 0.060},
+            {"holdingName": "Amazon.com Inc",        "symbol": "AMZN",  "holdingPercent": 0.036},
+            {"holdingName": "Meta Platforms A",      "symbol": "META",  "holdingPercent": 0.026},
+            {"holdingName": "Alphabet Inc A",        "symbol": "GOOGL", "holdingPercent": 0.021},
+            {"holdingName": "Berkshire Hathaway B",  "symbol": "BRK-B", "holdingPercent": 0.017},
+            {"holdingName": "Alphabet Inc C",        "symbol": "GOOG",  "holdingPercent": 0.017},
+            {"holdingName": "Tesla Inc",             "symbol": "TSLA",  "holdingPercent": 0.013},
+            {"holdingName": "Broadcom Inc",          "symbol": "AVGO",  "holdingPercent": 0.010},
+        ],
+        "sectorWeightings": [
+            {"Technology": 0.315}, {"Financials": 0.132}, {"Healthcare": 0.128},
+            {"Consumer Discretionary": 0.105}, {"Communication Services": 0.090},
+            {"Industrials": 0.085}, {"Consumer Staples": 0.059},
+            {"Energy": 0.036}, {"Real Estate": 0.025}, {"Utilities": 0.024},
+            {"Basic Materials": 0.023},
+        ],
+        "countryWeightings": [{"United States": 0.997}, {"Other": 0.003}],
+    },
+    "SPYD.DE": {"_alias": "SXR8.DE", "expenseRatio": 0.0003,
+                "fundFamily": "SPDR / State Street", "alt_tickers": ["SXR8.DE"]},
+
+    # ── GLOBAL: MSCI ACWI ─────────────────────────────────────────────────────
+    "IUSQ.DE": {
+        "expenseRatio": 0.0020, "totalAssets": 12_000_000_000,
+        "threeYearAverageReturn": 0.082, "fiveYearAverageReturn": 0.112,
+        "fundFamily": "iShares / BlackRock", "category": "Global All Cap Blend · Acc",
+        "numberOfHoldings": 2369, "replication": "Physisch (optimiert)",
+        "alt_tickers": ["VWCE.DE"],
+        "holdings": [
+            {"holdingName": "Apple Inc",            "symbol": "AAPL",  "holdingPercent": 0.041},
+            {"holdingName": "Microsoft Corp",        "symbol": "MSFT",  "holdingPercent": 0.038},
+            {"holdingName": "NVIDIA Corp",           "symbol": "NVDA",  "holdingPercent": 0.035},
+            {"holdingName": "Amazon.com Inc",        "symbol": "AMZN",  "holdingPercent": 0.025},
+            {"holdingName": "Meta Platforms A",      "symbol": "META",  "holdingPercent": 0.020},
+            {"holdingName": "Alphabet Inc A",        "symbol": "GOOGL", "holdingPercent": 0.015},
+            {"holdingName": "Taiwan Semiconductor",  "symbol": "TSM",   "holdingPercent": 0.012},
+            {"holdingName": "Alphabet Inc C",        "symbol": "GOOG",  "holdingPercent": 0.012},
+            {"holdingName": "Tesla Inc",             "symbol": "TSLA",  "holdingPercent": 0.010},
+            {"holdingName": "Berkshire Hathaway B",  "symbol": "BRK-B", "holdingPercent": 0.009},
+        ],
+        "sectorWeightings": [
+            {"Technology": 0.238}, {"Financials": 0.154}, {"Healthcare": 0.118},
+            {"Consumer Discretionary": 0.105}, {"Industrials": 0.103},
+            {"Communication Services": 0.085}, {"Consumer Staples": 0.069},
+            {"Energy": 0.044}, {"Basic Materials": 0.039},
+            {"Real Estate": 0.027}, {"Utilities": 0.027},
+        ],
+        "countryWeightings": [
+            {"United States": 0.645}, {"Japan": 0.055}, {"United Kingdom": 0.038},
+            {"China": 0.032}, {"France": 0.030}, {"Canada": 0.030},
+            {"Switzerland": 0.026}, {"India": 0.022}, {"Germany": 0.022},
+            {"Australia": 0.019},
+        ],
+    },
+
+    # ── EMERGING MARKETS ──────────────────────────────────────────────────────
+    "XMME.DE": {
+        "expenseRatio": 0.0018, "totalAssets": 6_000_000_000,
+        "threeYearAverageReturn": 0.012, "fiveYearAverageReturn": 0.038,
+        "fundFamily": "Xtrackers / DWS", "category": "Emerging Markets Large Cap Blend · Acc",
+        "numberOfHoldings": 1315, "replication": "Physisch (optimiert)",
+        "alt_tickers": ["IS3N.DE"],
+        "holdings": [
+            {"holdingName": "Taiwan Semiconductor",  "symbol": "TSM",        "holdingPercent": 0.065},
+            {"holdingName": "Samsung Electronics",   "symbol": "005930.KS",  "holdingPercent": 0.035},
+            {"holdingName": "Tencent Holdings",      "symbol": "700.HK",     "holdingPercent": 0.034},
+            {"holdingName": "Alibaba Group",         "symbol": "BABA",       "holdingPercent": 0.024},
+            {"holdingName": "Reliance Industries",   "symbol": "RELIANCE.NS","holdingPercent": 0.016},
+            {"holdingName": "HDFC Bank",             "symbol": "HDFCBANK.NS","holdingPercent": 0.014},
+            {"holdingName": "Meituan",               "symbol": "3690.HK",    "holdingPercent": 0.013},
+            {"holdingName": "Infosys Ltd",           "symbol": "INFY",       "holdingPercent": 0.012},
+            {"holdingName": "SK Hynix",              "symbol": "000660.KS",  "holdingPercent": 0.011},
+            {"holdingName": "ICBC",                  "symbol": "1398.HK",    "holdingPercent": 0.010},
+        ],
+        "sectorWeightings": [
+            {"Financials": 0.230}, {"Technology": 0.222}, {"Consumer Discretionary": 0.120},
+            {"Communication Services": 0.092}, {"Basic Materials": 0.080},
+            {"Industrials": 0.080}, {"Consumer Staples": 0.058},
+            {"Energy": 0.050}, {"Healthcare": 0.040}, {"Real Estate": 0.028},
+        ],
+        "countryWeightings": [
+            {"China": 0.270}, {"India": 0.180}, {"Taiwan": 0.170},
+            {"South Korea": 0.120}, {"Brazil": 0.050}, {"Saudi Arabia": 0.040},
+            {"South Africa": 0.033}, {"Mexico": 0.028}, {"Indonesia": 0.020},
+            {"Thailand": 0.015},
+        ],
+    },
+    "IS3N.DE": {"_alias": "XMME.DE", "expenseRatio": 0.0018,
+                "fundFamily": "iShares / BlackRock",
+                "category": "Emerging Markets IMI Blend · Acc",
+                "numberOfHoldings": 3241, "alt_tickers": ["XMME.DE"]},
+
+    # ── EUROPE: STOXX 600 ─────────────────────────────────────────────────────
+    "EXH1.DE": {
+        "expenseRatio": 0.0020, "totalAssets": 7_500_000_000,
+        "threeYearAverageReturn": 0.068, "fiveYearAverageReturn": 0.082,
+        "fundFamily": "iShares / BlackRock",
+        "category": "Europe Large/Mid/Small Cap Blend · Dist",
+        "numberOfHoldings": 600, "replication": "Physisch (optimiert)",
+        "alt_tickers": ["MEUD.PA"],
+        "holdings": [
+            {"holdingName": "Novo Nordisk",      "symbol": "NVO",    "holdingPercent": 0.035},
+            {"holdingName": "ASML Holding",      "symbol": "ASML",   "holdingPercent": 0.032},
+            {"holdingName": "Nestlé",            "symbol": "NESN.SW","holdingPercent": 0.022},
+            {"holdingName": "LVMH",              "symbol": "MC.PA",  "holdingPercent": 0.020},
+            {"holdingName": "AstraZeneca",       "symbol": "AZN",    "holdingPercent": 0.017},
+            {"holdingName": "Roche Holding",     "symbol": "ROG.SW", "holdingPercent": 0.017},
+            {"holdingName": "Novartis",          "symbol": "NVS",    "holdingPercent": 0.016},
+            {"holdingName": "Shell plc",         "symbol": "SHEL",   "holdingPercent": 0.015},
+            {"holdingName": "Siemens AG",        "symbol": "SIE.DE", "holdingPercent": 0.013},
+            {"holdingName": "SAP SE",            "symbol": "SAP",    "holdingPercent": 0.012},
+        ],
+        "sectorWeightings": [
+            {"Financials": 0.180}, {"Industrials": 0.160}, {"Healthcare": 0.140},
+            {"Consumer Staples": 0.120}, {"Consumer Discretionary": 0.100},
+            {"Technology": 0.070}, {"Basic Materials": 0.060},
+            {"Energy": 0.050}, {"Utilities": 0.050},
+            {"Communication Services": 0.040}, {"Real Estate": 0.030},
+        ],
+        "countryWeightings": [
+            {"United Kingdom": 0.220}, {"France": 0.170}, {"Switzerland": 0.140},
+            {"Germany": 0.120}, {"Netherlands": 0.060}, {"Sweden": 0.050},
+            {"Denmark": 0.050}, {"Spain": 0.040}, {"Italy": 0.040},
+            {"Belgium": 0.020},
+        ],
+    },
+    "MEUD.PA": {"_alias": "EXH1.DE", "expenseRatio": 0.0012,
+                "totalAssets": 4_000_000_000, "fundFamily": "Amundi",
+                "category": "Europe Large Cap Blend · Acc", "alt_tickers": ["EXH1.DE"]},
+
+    # ── GERMANY: DAX ──────────────────────────────────────────────────────────
+    "EXS1.DE": {
+        "expenseRatio": 0.0016, "totalAssets": 5_000_000_000,
+        "threeYearAverageReturn": 0.072, "fiveYearAverageReturn": 0.088,
+        "fundFamily": "iShares / BlackRock", "category": "Germany Large Cap Blend · Acc",
+        "numberOfHoldings": 40, "replication": "Physisch (vollständig)",
+        "alt_tickers": ["DBXD.DE"],
+        "holdings": [
+            {"holdingName": "SAP SE",              "symbol": "SAP",    "holdingPercent": 0.130},
+            {"holdingName": "Siemens AG",           "symbol": "SIE.DE","holdingPercent": 0.080},
+            {"holdingName": "Allianz SE",           "symbol": "ALV.DE","holdingPercent": 0.070},
+            {"holdingName": "Deutsche Telekom",     "symbol": "DTE.DE","holdingPercent": 0.060},
+            {"holdingName": "Airbus SE",            "symbol": "AIR.PA","holdingPercent": 0.050},
+            {"holdingName": "Munich Re",            "symbol": "MUV2.DE","holdingPercent":0.050},
+            {"holdingName": "BMW AG",               "symbol": "BMW.DE","holdingPercent": 0.030},
+            {"holdingName": "Volkswagen AG Vz",     "symbol": "VOW3.DE","holdingPercent":0.030},
+            {"holdingName": "Infineon Technologies","symbol": "IFX.DE","holdingPercent": 0.030},
+            {"holdingName": "BASF SE",              "symbol": "BAS.DE","holdingPercent": 0.020},
+        ],
+        "sectorWeightings": [
+            {"Industrials": 0.180}, {"Financials": 0.180}, {"Technology": 0.140},
+            {"Consumer Discretionary": 0.120}, {"Healthcare": 0.070},
+            {"Basic Materials": 0.070}, {"Communication Services": 0.060},
+            {"Consumer Staples": 0.050}, {"Utilities": 0.030},
+            {"Energy": 0.020}, {"Real Estate": 0.010},
+        ],
+        "countryWeightings": [{"Germany": 1.000}],
+    },
+    "DBXD.DE": {"_alias": "EXS1.DE", "expenseRatio": 0.0009,
+                "fundFamily": "Xtrackers / DWS", "alt_tickers": ["EXS1.DE"]},
+
+    # ── USA: NASDAQ-100 ───────────────────────────────────────────────────────
+    "EXXT.DE": {
+        "expenseRatio": 0.0033, "totalAssets": 7_000_000_000,
+        "threeYearAverageReturn": 0.112, "fiveYearAverageReturn": 0.198,
+        "fundFamily": "iShares / BlackRock", "category": "USA Tech/Growth Large Cap · Acc",
+        "numberOfHoldings": 101, "replication": "Physisch (optimiert)",
+        "alt_tickers": [],
+        "holdings": [
+            {"holdingName": "Apple Inc",         "symbol": "AAPL",  "holdingPercent": 0.085},
+            {"holdingName": "Microsoft Corp",     "symbol": "MSFT",  "holdingPercent": 0.075},
+            {"holdingName": "NVIDIA Corp",        "symbol": "NVDA",  "holdingPercent": 0.070},
+            {"holdingName": "Amazon.com Inc",     "symbol": "AMZN",  "holdingPercent": 0.050},
+            {"holdingName": "Meta Platforms A",   "symbol": "META",  "holdingPercent": 0.045},
+            {"holdingName": "Tesla Inc",          "symbol": "TSLA",  "holdingPercent": 0.040},
+            {"holdingName": "Alphabet Inc A",     "symbol": "GOOGL", "holdingPercent": 0.030},
+            {"holdingName": "Alphabet Inc C",     "symbol": "GOOG",  "holdingPercent": 0.028},
+            {"holdingName": "Broadcom Inc",       "symbol": "AVGO",  "holdingPercent": 0.022},
+            {"holdingName": "Costco Wholesale",   "symbol": "COST",  "holdingPercent": 0.012},
+        ],
+        "sectorWeightings": [
+            {"Technology": 0.520}, {"Communication Services": 0.160},
+            {"Consumer Discretionary": 0.140}, {"Healthcare": 0.070},
+            {"Consumer Staples": 0.050}, {"Industrials": 0.040},
+            {"Utilities": 0.010}, {"Financials": 0.010},
+        ],
+        "countryWeightings": [{"United States": 0.980}, {"Other": 0.020}],
+    },
+
+    # ── USA: S&P 500 IT-Sektor ────────────────────────────────────────────────
+    "QDVE.DE": {
+        "expenseRatio": 0.0015, "totalAssets": 2_500_000_000,
+        "threeYearAverageReturn": 0.138, "fiveYearAverageReturn": 0.228,
+        "fundFamily": "iShares / BlackRock", "category": "USA Tech-Sektor · Acc",
+        "numberOfHoldings": 68, "replication": "Physisch (optimiert)",
+        "alt_tickers": [],
+        "holdings": [
+            {"holdingName": "Apple Inc",          "symbol": "AAPL",  "holdingPercent": 0.230},
+            {"holdingName": "NVIDIA Corp",         "symbol": "NVDA",  "holdingPercent": 0.190},
+            {"holdingName": "Microsoft Corp",      "symbol": "MSFT",  "holdingPercent": 0.185},
+            {"holdingName": "Broadcom Inc",        "symbol": "AVGO",  "holdingPercent": 0.060},
+            {"holdingName": "Salesforce Inc",      "symbol": "CRM",   "holdingPercent": 0.030},
+            {"holdingName": "AMD",                 "symbol": "AMD",   "holdingPercent": 0.025},
+            {"holdingName": "Texas Instruments",   "symbol": "TXN",   "holdingPercent": 0.022},
+            {"holdingName": "Applied Materials",   "symbol": "AMAT",  "holdingPercent": 0.020},
+            {"holdingName": "Qualcomm",            "symbol": "QCOM",  "holdingPercent": 0.020},
+            {"holdingName": "Intuit Inc",          "symbol": "INTU",  "holdingPercent": 0.018},
+        ],
+        "sectorWeightings": [{"Technology": 1.000}],
+        "countryWeightings": [{"United States": 0.980}, {"Other": 0.020}],
+    },
+}
+
+
+def _resolve_etf_static(tkr: str) -> dict:
+    """Löst ETF-Aliase auf und gibt vollständige statische Daten zurück."""
+    data = ETF_STATIC_DATA.get(tkr, {})
+    if not data:
+        return {}
+    if "_alias" in data:
+        base = dict(ETF_STATIC_DATA.get(data["_alias"], {}))
+        base.pop("_alias", None)
+        # Ticker-spezifische Überschreibungen (z.B. anderer TER)
+        for k, v in data.items():
+            if k not in ("_alias",):
+                base[k] = v
+        return base
+    return dict(data)
+
+
+def get_etf_info_enriched(ticker: str) -> dict:
+    """
+    Holt ETF-Daten aus yfinance und reichert sie mit statischen Referenzdaten an.
+    Strategie:
+    1. Statische Referenzdaten für diesen Ticker laden (falls vorhanden)
+    2. yfinance für Original-Ticker versuchen
+    3. Falls yfinance keine Kerndaten liefert → Alt-Ticker probieren
+    4. Statische Daten als Basis, yfinance-Daten überschreiben wo vorhanden
+    Gibt gemergten dict zurück + '_static_used' Flag.
+    """
+    tkr = ticker.upper().strip()
+    static = _resolve_etf_static(tkr)
+    alt_tickers = static.pop("alt_tickers", [])
+
+    # yfinance abrufen
+    yf_info = {}
+    try:
+        yf_info = yf.Ticker(ticker).info or {}
+    except Exception:
+        pass
+
+    # Prüfen ob yfinance sinnvolle ETF-Kerndaten hat
+    _yf_has_data = bool(
+        yf_info.get("totalAssets") or
+        yf_info.get("expenseRatio") or
+        yf_info.get("annualReportExpenseRatio") or
+        yf_info.get("threeYearAverageReturn")
+    )
+
+    # Falls nein → Alt-Ticker versuchen (z.B. IWDA.L statt IWDA.AS)
+    if not _yf_has_data and alt_tickers:
+        for alt in alt_tickers:
+            try:
+                _alt = yf.Ticker(alt).info or {}
+                if (_alt.get("totalAssets") or _alt.get("expenseRatio") or
+                        _alt.get("threeYearAverageReturn")):
+                    yf_info = _alt
+                    _yf_has_data = True
+                    break
+            except Exception:
+                continue
+
+    # Merge: statische Daten als Basis, yfinance überschreibt wo Daten vorhanden
+    merged = dict(static)
+    _live_fields = {"regularMarketPrice", "regularMarketChange", "regularMarketChangePercent",
+                    "currency", "exchange", "quoteType", "longName", "shortName",
+                    "ytdReturn", "dividendYield", "yield"}
+    for k, v in yf_info.items():
+        is_live = k in _live_fields
+        has_value = v is not None and v != "" and not (isinstance(v, list) and len(v) == 0)
+        if is_live or (has_value and k not in merged):
+            # yf überschreibt statische Daten nur für Live-Felder oder wenn statisch leer
+            merged[k] = v
+        elif has_value and k in merged and k not in ("holdings", "sectorWeightings", "countryWeightings"):
+            # Für numerische Kerndaten: yfinance hat Vorrang (aktueller)
+            merged[k] = v
+
+    merged["_static_used"] = not _yf_has_data
+    return merged
+
+
 # Portfolio-Charakter-Profile
 PORTFOLIO_PROFILES = {
     "Quiet Compounder": {
@@ -2167,6 +2553,71 @@ def score_hc_fundamentals(metrics):
     return clip_score(score), reasons
 
 # ══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
+# ETF-Qualitäts-Scoring
+# ══════════════════════════════════════════════════════════════════════════════
+def score_etf_quality(info: dict) -> tuple:
+    """Bewertet ETF-Qualität anhand von TER, AUM, Rendite, Holdings-Konzentration.
+    Gibt (score: float, reasons: list[str]) zurück — analog zu score_core_fundamentals."""
+    reasons = []; score = 5.0
+
+    # ── TER (Total Expense Ratio) ────────────────────────────────────────────
+    ter = info.get("annualReportExpenseRatio") or info.get("expenseRatio")
+    if ter is not None:
+        ter_pct = ter * 100
+        if   ter_pct <= 0.10: score += 1.5; reasons.append(f"TER {ter_pct:.2f}% — sehr kosteneffizient, kaum Rendite-Drag.")
+        elif ter_pct <= 0.20: score += 1.0; reasons.append(f"TER {ter_pct:.2f}% — günstig für einen ETF.")
+        elif ter_pct <= 0.35: score += 0.3; reasons.append(f"TER {ter_pct:.2f}% — akzeptabel.")
+        elif ter_pct <= 0.55: score -= 0.5; reasons.append(f"TER {ter_pct:.2f}% — leicht erhöht, schmälert Langzeitrendite.")
+        else:                  score -= 1.1; reasons.append(f"TER {ter_pct:.2f}% — hohe Kosten fressen Rendite-Vorteil auf.")
+    else:
+        reasons.append("TER nicht verfügbar — Kostenstruktur unklar.")
+
+    # ── AUM (Fondsvolumen) ───────────────────────────────────────────────────
+    aum = info.get("totalAssets")
+    if aum is not None:
+        if   aum >= 10e9: score += 1.3; reasons.append(f"Fondsvolumen {aum/1e9:.1f} Mrd — sehr etabliert, top Liquidität.")
+        elif aum >= 3e9:  score += 0.9; reasons.append(f"Fondsvolumen {aum/1e9:.1f} Mrd — solide Größe, kein Liquiditätsrisiko.")
+        elif aum >= 500e6:score += 0.3; reasons.append(f"Fondsvolumen {aum/1e6:.0f} Mio — ausreichend.")
+        elif aum >= 100e6:score -= 0.5; reasons.append(f"Fondsvolumen {aum/1e6:.0f} Mio — klein, erhöhtes Spread-Risiko.")
+        else:              score -= 1.0; reasons.append(f"Fondsvolumen {aum/1e6:.0f} Mio — sehr klein, Schließungsrisiko beachten.")
+    else:
+        reasons.append("Fondsvolumen nicht verfügbar.")
+
+    # ── 3J / 5J Rendite ─────────────────────────────────────────────────────
+    r3y = info.get("threeYearAverageReturn")
+    r5y = info.get("fiveYearAverageReturn")
+    if r3y is not None:
+        r3_pct = r3y * 100
+        if   r3_pct >= 14: score += 1.0; reasons.append(f"3J Ø {r3_pct:.1f}% p.a. — starke Performance über 3 Jahre.")
+        elif r3_pct >= 9:  score += 0.6; reasons.append(f"3J Ø {r3_pct:.1f}% p.a. — solide Rendite.")
+        elif r3_pct >= 5:  score += 0.2; reasons.append(f"3J Ø {r3_pct:.1f}% p.a. — moderat.")
+        elif r3_pct >= 0:  score -= 0.3; reasons.append(f"3J Ø {r3_pct:.1f}% p.a. — schwach.")
+        else:               score -= 0.9; reasons.append(f"3J Ø {r3_pct:.1f}% p.a. — im Minus über 3 Jahre.")
+    if r5y is not None:
+        r5_pct = r5y * 100
+        if   r5y >= 10: score += 0.5; reasons.append(f"5J Ø {r5_pct:.1f}% p.a. — langfristig überzeugend.")
+        elif r5y >= 6:  score += 0.2; reasons.append(f"5J Ø {r5_pct:.1f}% p.a. — langfristig solide.")
+        elif r5y < 3:   score -= 0.3; reasons.append(f"5J Ø {r5_pct:.1f}% p.a. — langfristig schwach.")
+
+    # ── Holdings-Konzentration (Top-3 Klumpenrisiko) ────────────────────────
+    holdings = info.get("holdings") or []
+    if holdings:
+        top3_w = sum(h.get("holdingPercent", 0) for h in holdings[:3])
+        if   top3_w > 0.50: score -= 0.7; reasons.append(f"Top-3 Holdings {top3_w*100:.0f}% — hohes Klumpenrisiko.")
+        elif top3_w > 0.30: score -= 0.2; reasons.append(f"Top-3 Holdings {top3_w*100:.0f}% — leicht konzentriert.")
+        else:                score += 0.3; reasons.append(f"Top-3 Holdings {top3_w*100:.0f}% — gut diversifiziert.")
+
+    # ── Anzahl Holdings ──────────────────────────────────────────────────────
+    n_holdings = info.get("numberOfHoldings") or len(holdings)
+    if n_holdings:
+        if   n_holdings >= 500: score += 0.4; reasons.append(f"{n_holdings} Positionen — breite Diversifikation.")
+        elif n_holdings >= 100: score += 0.2; reasons.append(f"{n_holdings} Positionen — solide Breite.")
+        elif n_holdings < 30:   score -= 0.3; reasons.append(f"Nur {n_holdings} Positionen — konzentriert.")
+
+    return clip_score(score), reasons
+
+
 # Relative Bewertung
 # ══════════════════════════════════════════════════════════════════════════════
 def score_relative_valuation(metrics: dict, sector: str) -> tuple:
@@ -3245,6 +3696,19 @@ Du bekommst: Asset, Einordnung, Fundament-/Chart-/Business-Daten, Empfehlung.
 Aufgabe: Erkläre in 3 kurzen Absätzen: (1) Was macht das Unternehmen? (2) Wie sieht die Aktie gerade aus — gut oder schlecht? (3) Was würde Ace einem Freund empfehlen?
 Stil: 100–160 Wörter, freundlich, direkt wie eine Sprachnachricht, keine Bulletpoints, keine Emojis."""
 
+ACE_ETF_PROMPT = """Du bist Ace, ein ruhiger, erfahrener ETF-Analyst.
+Du bekommst Daten zu einem ETF: Name, Ticker, Kategorie, TER, Fondsvolumen, Renditen (YTD/3J/5J), Top-Holdings, geografische Verteilung, Sektor-Gewichtung, Chart-Timing-Score und Portfolio-Kontext.
+Aufgabe: Schreibe eine prägnante ETF-Einschätzung — kein Buzzword-Bingo, keine generischen Sätze.
+
+Beantworte konkret:
+1. Ist dieser ETF kosteneffizient und ausreichend groß für Langfristanleger?
+2. Gibt es Klumpenrisiken in den Top-Holdings oder geografisch (z.B. USA-Übergewicht)?
+3. Passt die Rendite-Geschichte (3J/5J) zum erwarteten Marktprofil?
+4. Wenn Chart-Timing vorhanden: Ist der aktuelle Einstiegszeitpunkt günstig?
+5. Wenn Portfolio vorhanden: Ergänzt er das bestehende Depot oder erhöht er Überschneidungen?
+
+Stil: 100–180 Wörter, 1 Fließtext, kein Jargon, keine Bulletpoints, keine Emojis, klare Einschätzung."""
+
 @st.cache_data(ttl=86400, show_spinner=False)
 def get_company_brief_de(ticker: str, name: str, sector: str,
                          industry: str, api_key: str = "") -> str:
@@ -3976,6 +4440,59 @@ def build_depot_fit(ticker, mode, profile, total_score, story_info, level="pro")
                    f"HC-Bestand: {n_hc}/{n_total} Positionen. "
                    f"Diese ergänzt das HC-Profil mit '{bm or sector}'-Exposition.")
             lines.append(("✓", msg, "#00C864"))
+
+    # ── ETF-spezifische Overlap-Analyse ─────────────────────────────────────
+    _is_etf_df = sector.startswith("ETF") if sector else False
+    if not _is_etf_df:
+        # nur prüfen wenn kein ETF-Sektor
+        pass
+    # ETF-Overlap: erkenne vorhandene ETFs im Depot und prüfe Überschneidung
+    _etf_info_df  = st.session_state.get("ace_etf_info", {})
+    _is_etf_check = bool(_etf_info_df and _etf_info_df.get("quoteType", "").upper() in ("ETF","MUTUALFUND","FUND"))
+    if not _is_etf_check and ticker.upper() in ETF_MAP:
+        _is_etf_check = True
+
+    if _is_etf_check and n_total > 0:
+        # Bekannte ETFs im Portfolio sammeln
+        _pf_etf_tickers = []
+        for _p in all_pos:
+            _ptk = (_p.get("ticker") or "").strip().upper()
+            if _ptk in ETF_MAP:
+                _pf_etf_tickers.append(_ptk)
+
+        # Region-/Stil-Overlap prüfen
+        _new_etf_meta  = ETF_MAP.get(ticker.upper(), {})
+        _new_region    = _new_etf_meta.get("region", "")
+        _new_style     = _new_etf_meta.get("style", "")
+
+        _overlap_tickers = []
+        if _new_region:
+            for _et in _pf_etf_tickers:
+                if ETF_MAP.get(_et, {}).get("region") == _new_region:
+                    _overlap_tickers.append(_et)
+
+        if _overlap_tickers:
+            _ov_list = ", ".join(_overlap_tickers[:3])
+            _ov_txt = (f"Achtung: Du hast bereits {_ov_list} im Depot — starke Überschneidung "
+                       "mit diesem ETF. Beide investieren in ähnliche Märkte."
+                       if is_beginner else
+                       f"Hoher Overlap: Region '{_new_region}' bereits durch {_ov_list} abgedeckt. "
+                       "Redundanz vermeiden — ein ETF je Marktsegment reicht.")
+            lines.append(("⚠", _ov_txt, "#f59e0b"))
+        elif _pf_etf_tickers:
+            _etf_regs = list({ETF_MAP.get(t,{}).get("region","") for t in _pf_etf_tickers if ETF_MAP.get(t,{}).get("region")})
+            if _new_region and _new_region not in _etf_regs:
+                _div_txt = (f"Gute Ergänzung — dieser ETF deckt '{_new_region}' ab, "
+                            "ein Bereich der in deinem Depot noch fehlt."
+                            if is_beginner else
+                            f"ETF-Diversifikation: Region '{_new_region}' bisher nicht im Portfolio → echter Mehrwert.")
+                lines.append(("✓", _div_txt, "#00C864"))
+        elif not _pf_etf_tickers and n_total > 0:
+            _base_txt = ("Noch kein ETF im Depot — dieser könnte als stabiles Fundament dienen."
+                         if is_beginner else
+                         f"Kein ETF bisher im Portfolio. ETF-Basis stärkt langfristige Stabilität.")
+            lines.append(("◆", _base_txt, "#3b82f6"))
+        return lines
 
     # ── Echter Sektor-Vergleich mit yfinance Cache ───────────────────────────
     if sector and n_total >= 2:
@@ -5466,15 +5983,26 @@ with tab_analyse:
                 f'<span style="font-size:0.8rem;color:#60a5fa;">ETF · Fondsanalyse</span>'
                 f'</div>', unsafe_allow_html=True)
 
-            # ETF-Kennzahlen von Yahoo holen
+            # ETF-Kennzahlen: yfinance + statische Referenzdaten (Fallback für EU-ETFs)
+            _etf_cached = st.session_state.get("ace_etf_info_tk") == ticker
+            if not _etf_cached:
+                _etf_info_raw = get_etf_info_enriched(ticker)
+                st.session_state["ace_etf_info"]    = _etf_info_raw
+                st.session_state["ace_etf_info_tk"] = ticker
+            else:
+                _etf_info_raw = st.session_state.get("ace_etf_info", {})
+
             try:
-                _etf_info = yf.Ticker(ticker).info or {}
+                _etf_info    = _etf_info_raw
+                _static_used = _etf_info.get("_static_used", False)
                 _ter      = _etf_info.get("annualReportExpenseRatio") or _etf_info.get("expenseRatio")
                 _aum      = _etf_info.get("totalAssets")
                 _yld      = _etf_info.get("yield") or _etf_info.get("dividendYield")
                 _ytd      = _etf_info.get("ytdReturn")
                 _3y       = _etf_info.get("threeYearAverageReturn")
                 _5y       = _etf_info.get("fiveYearAverageReturn")
+                _n_hold   = _etf_info.get("numberOfHoldings")
+                _replic   = _etf_info.get("replication") or ""
                 _cat      = _etf_info.get("category") or ""
                 _family   = _etf_info.get("fundFamily") or ""
 
@@ -5483,12 +6011,12 @@ with tab_analyse:
 
                 _etf_cols = st.columns(3)
                 _etf_data = [
-                    ("TER (Kosten/Jahr)", _pct(_ter)),
-                    ("Fondsvolumen",       _mrd(_aum)),
-                    ("Ausschüttungsrendite", _pct(_yld)),
-                    ("Performance YTD",   _pct(_ytd)),
-                    ("3J Ø p.a.",         _pct(_3y)),
-                    ("5J Ø p.a.",         _pct(_5y)),
+                    ("TER (Kosten/Jahr)",     _pct(_ter)),
+                    ("Fondsvolumen",           _mrd(_aum)),
+                    ("Anzahl Positionen",      f"{_n_hold:,}" if _n_hold else "—"),
+                    ("Performance YTD",        _pct(_ytd)),
+                    ("3J Ø p.a.",              _pct(_3y)),
+                    ("5J Ø p.a.",              _pct(_5y)),
                 ]
                 for i, (label, val) in enumerate(_etf_data):
                     with _etf_cols[i % 3]:
@@ -5500,8 +6028,121 @@ with tab_analyse:
                             f'<div style="font-size:1.1rem;font-weight:600;color:var(--text-color);'
                             f'margin-top:0.15rem;">{val}</div></div>',
                             unsafe_allow_html=True)
-                if _cat or _family:
-                    st.caption(f"{_family}{' · ' if _family and _cat else ''}{_cat}")
+                # Kategorie + Replikation + Datenquellen-Badge
+                _meta_parts = []
+                if _family: _meta_parts.append(_family)
+                if _cat:    _meta_parts.append(_cat)
+                if _replic: _meta_parts.append(_replic)
+                _meta_str = " · ".join(_meta_parts)
+                if _static_used:
+                    _meta_str += (" · " if _meta_str else "") + "📋 Referenzwerte Q1 2025"
+                if _meta_str:
+                    st.caption(_meta_str)
+
+                # ── ETF Deep-Dive: Holdings / Geo / Sektoren ──────────────
+                _holdings     = _etf_info.get("holdings") or []
+                _sector_wts   = _etf_info.get("sectorWeightings") or []
+                _country_wts  = _etf_info.get("countryWeightings") or []
+
+                if _holdings or _sector_wts or _country_wts:
+                    st.markdown(
+                        '<div style="font-size:0.62rem;letter-spacing:0.14em;text-transform:uppercase;'
+                        'color:var(--text-color);opacity:0.38;margin:1.1rem 0 0.5rem 0;">Deep-Dive</div>',
+                        unsafe_allow_html=True)
+
+                # Top-10 Holdings
+                if _holdings:
+                    with st.expander("Top Holdings", expanded=False):
+                        _h_html = (
+                            '<div style="font-size:0.82rem;">'
+                        )
+                        for _h in _holdings[:10]:
+                            _h_name = _h.get("holdingName") or _h.get("symbol") or "—"
+                            _h_sym  = _h.get("symbol") or ""
+                            _h_pct  = _h.get("holdingPercent")
+                            _h_pct_s = f"{_h_pct*100:.2f}%" if _h_pct is not None else "—"
+                            _h_bar_w = int((_h_pct or 0) * 100 * 3)  # px-Breite, max ~15px
+                            _h_bar_w = min(_h_bar_w, 80)
+                            _h_html += (
+                                f'<div style="display:flex;align-items:center;gap:0.6rem;'
+                                f'padding:0.3rem 0;border-bottom:1px solid rgba(128,128,128,0.08);">'
+                                f'<div style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;'
+                                f'text-overflow:ellipsis;color:var(--text-color);">'
+                                f'{_h_name}'
+                                + (f'<span style="font-size:0.7rem;opacity:0.45;margin-left:0.4rem;">'
+                                   f'{_h_sym}</span>' if _h_sym and _h_sym != _h_name else '')
+                                + f'</div>'
+                                f'<div style="display:flex;align-items:center;gap:0.4rem;flex-shrink:0;">'
+                                f'<div style="width:{_h_bar_w}px;height:4px;border-radius:2px;'
+                                f'background:rgba(59,130,246,0.5);"></div>'
+                                f'<span style="font-size:0.78rem;font-weight:600;'
+                                f'color:#60a5fa;min-width:3rem;text-align:right;">{_h_pct_s}</span>'
+                                f'</div></div>'
+                            )
+                        _h_html += '</div>'
+                        st.markdown(_h_html, unsafe_allow_html=True)
+
+                # Geografische Verteilung
+                if _country_wts:
+                    with st.expander("Geografische Verteilung", expanded=False):
+                        # Yahoo liefert Liste von {land: pct} Dicts
+                        _cw_flat = {}
+                        for _cw_item in _country_wts:
+                            if isinstance(_cw_item, dict):
+                                for _k, _v in _cw_item.items():
+                                    if _v is not None:
+                                        _cw_flat[_k] = _cw_flat.get(_k, 0) + float(_v)
+                        _cw_sorted = sorted(_cw_flat.items(), key=lambda x: -x[1])[:10]
+                        _geo_html = '<div style="font-size:0.82rem;">'
+                        for _cname, _cpct in _cw_sorted:
+                            _cpct_pct = _cpct * 100 if _cpct <= 1 else _cpct
+                            _bar_w = int(min(_cpct_pct * 1.8, 120))
+                            _geo_html += (
+                                f'<div style="display:flex;align-items:center;gap:0.6rem;'
+                                f'padding:0.28rem 0;border-bottom:1px solid rgba(128,128,128,0.08);">'
+                                f'<div style="flex:1;color:var(--text-color);">{_cname}</div>'
+                                f'<div style="display:flex;align-items:center;gap:0.4rem;flex-shrink:0;">'
+                                f'<div style="width:{_bar_w}px;height:4px;border-radius:2px;'
+                                f'background:rgba(16,185,129,0.5);"></div>'
+                                f'<span style="font-size:0.78rem;font-weight:600;color:#10b981;'
+                                f'min-width:3.2rem;text-align:right;">{_cpct_pct:.1f}%</span>'
+                                f'</div></div>'
+                            )
+                        _geo_html += '</div>'
+                        st.markdown(_geo_html, unsafe_allow_html=True)
+
+                # Sektor-Verteilung
+                if _sector_wts:
+                    with st.expander("Sektor-Verteilung", expanded=False):
+                        _sw_flat = {}
+                        for _sw_item in _sector_wts:
+                            if isinstance(_sw_item, dict):
+                                for _k, _v in _sw_item.items():
+                                    if _v is not None:
+                                        _sw_flat[_k] = _sw_flat.get(_k, 0) + float(_v)
+                        _sw_sorted = sorted(_sw_flat.items(), key=lambda x: -x[1])[:12]
+                        _sec_html = '<div style="font-size:0.82rem;">'
+                        _sec_colors = ["#60a5fa","#34d399","#f59e0b","#a78bfa","#f87171",
+                                       "#38bdf8","#4ade80","#fb923c","#c084fc","#fb7185",
+                                       "#22d3ee","#86efac"]
+                        for _si2, (_sname, _spct) in enumerate(_sw_sorted):
+                            _spct_pct = _spct * 100 if _spct <= 1 else _spct
+                            _s_bar_w  = int(min(_spct_pct * 1.8, 120))
+                            _s_color  = _sec_colors[_si2 % len(_sec_colors)]
+                            _sec_html += (
+                                f'<div style="display:flex;align-items:center;gap:0.6rem;'
+                                f'padding:0.28rem 0;border-bottom:1px solid rgba(128,128,128,0.08);">'
+                                f'<div style="flex:1;color:var(--text-color);">{_sname}</div>'
+                                f'<div style="display:flex;align-items:center;gap:0.4rem;flex-shrink:0;">'
+                                f'<div style="width:{_s_bar_w}px;height:4px;border-radius:2px;'
+                                f'background:{_s_color}88;"></div>'
+                                f'<span style="font-size:0.78rem;font-weight:600;color:{_s_color};'
+                                f'min-width:3.2rem;text-align:right;">{_spct_pct:.1f}%</span>'
+                                f'</div></div>'
+                            )
+                        _sec_html += '</div>'
+                        st.markdown(_sec_html, unsafe_allow_html=True)
+
             except Exception:
                 st.caption("ETF-Kennzahlen konnten nicht geladen werden.")
 
@@ -5830,6 +6471,43 @@ with tab_analyse:
             st.session_state.fund_score  = fs; st.session_state.fund_reasons = fr
             st.session_state.story_score = ss; st.session_state.story_reasons = sr
             st.session_state.story_info  = si; st.session_state.ace_long_fazit = ""
+
+        # ── ETF-Qualitäts-Score (nur für ETFs) ───────────────────────────────
+        if _is_etf_ticker:
+            st.markdown('<div class="ace-section">ETF-Qualität</div>', unsafe_allow_html=True)
+            _etf_i_right = st.session_state.get("ace_etf_info", {})
+            _etf_score_cached = st.session_state.get("etf_q_score_tk") == ticker
+            if not _etf_score_cached and _etf_i_right:
+                _eqs, _eqr = score_etf_quality(_etf_i_right)
+                st.session_state["etf_q_score"]    = _eqs
+                st.session_state["etf_q_reasons"]  = _eqr
+                st.session_state["etf_q_score_tk"] = ticker
+                # fund_score auf ETF-Score setzen — wird für Gesamt-Score genutzt
+                st.session_state.fund_score   = _eqs
+                st.session_state.fund_reasons = _eqr
+                st.session_state.story_score  = None
+                st.session_state.story_reasons= []
+                st.session_state.story_info   = None
+            elif not _etf_i_right:
+                st.caption("ETF-Daten noch nicht geladen — Ticker links eingeben.")
+
+            _eqs_show = st.session_state.get("etf_q_score")
+            _eqr_show = st.session_state.get("etf_q_reasons", [])
+            if _eqs_show is not None:
+                _ul_etf = st.session_state.get("user_level", "pro")
+                _etf_hint = (
+                    "Sehr effizienter ETF — niedrige Kosten, gute Größe, solide Rendite."
+                    if _eqs_show >= 7.5 else
+                    "Solider ETF — ein paar kleinere Schwachstellen vorhanden."
+                    if _eqs_show >= 6.0 else
+                    "Gemischtes Bild — TER, Volumen oder Rendite prüfen."
+                    if _eqs_show >= 5.0 else
+                    "ETF mit Schwächen — Kosten oder Klumpenrisiko beachten."
+                )
+                render_score_card(
+                    "ETF-Qualität" if _ul_etf == "pro" else "Fondsqualität",
+                    _eqs_show, _etf_hint, _eqr_show, "etf_q", level=_ul_etf
+                )
 
         if st.session_state.fund_score is not None:
             _ul = st.session_state.get("user_level", "pro")
@@ -6492,45 +7170,98 @@ with tab_analyse:
                 unsafe_allow_html=True)
 
             _fazit_ul  = st.session_state.get("user_level", "pro")
-            _fazit_btn = ("▶  Ace erklärt es dir" if _fazit_ul == "beginner"
-                          else "▶  Vollständiges Fazit generieren")
-            if st.button(_fazit_btn, use_container_width=True, key="btn_ace_fazit"):
-                if not (st.session_state.ace_long_fazit and st.session_state.ace_long_key == snap_key):
-                    _triggers_for_ace = build_entry_triggers(mode, metrics, st.session_state.timing_score,
-                                                              st.session_state.chart_df, has_position, bpv, lp)
-                    _risks_for_ace    = build_risk_hints(mode, metrics, st.session_state.story_info,
-                                                          st.session_state.fund_score, st.session_state.timing_score,
-                                                          st.session_state.chart_df)
-                    snap = {
-                        "asset":     {"name": asset_name or profile.get("name") or ticker, "ticker": ticker},
-                        "einordnung": mode,
-                        "profile":   profile if st.session_state.story_info else None,
-                        "fundament": {"kennzahlen": metrics, "score": st.session_state.fund_score,
-                                      "beobachtungen": st.session_state.fund_reasons},
-                        "business_story": {"score": st.session_state.story_score,
-                                           "beobachtungen": st.session_state.story_reasons,
-                                           "profil": st.session_state.story_info} if st.session_state.story_info else None,
-                        "timing":    {"score": st.session_state.timing_score,
-                                      "beobachtungen": st.session_state.timing_reasons,
-                                      "kontext": st.session_state.chart_bg},
-                        "fazit":     {"gesamt_score": total, "handlung": action, "warum": why},
-                        "entry_trigger": _triggers_for_ace, "risiken": _risks_for_ace,
-                        "portfolio": {"im_portfolio": has_position, "kaufkurs": bpv, "aktueller_kurs": lp,
-                                      "seit_kauf_perf": perf2, "depotgroesse": ptv,
-                                      "positionswert": pvv, "positionsgewicht": wt2},
-                        "red_flags": st.session_state.red_flags,
-                    }
-                    _ace_model = "gpt-4.1-mini"
-                    try:
-                        with st.spinner("Ace schreibt…"):
-                            txt = ace_fazit(snap, model=_ace_model,
-                                            user_level=st.session_state.get("user_level","pro"))
-                        st.session_state.ace_long_fazit = txt
-                        st.session_state.ace_long_key   = snap_key
-                    except Exception as e:
-                        st.session_state.ace_long_fazit = ""
-                        st.session_state.ace_long_key   = ""
-                        st.error(str(e))
+
+            if _is_etf_ticker:
+                # ── ETF-Fazit ────────────────────────────────────────────────
+                _etf_fazit_btn = ("▶  Ace erklärt den ETF" if _fazit_ul == "beginner"
+                                  else "▶  ETF-Einschätzung generieren")
+                if st.button(_etf_fazit_btn, use_container_width=True, key="btn_ace_etf_fazit"):
+                    if not (st.session_state.ace_long_fazit and st.session_state.ace_long_key == snap_key):
+                        _ei = st.session_state.get("ace_etf_info", {})
+                        def _pct_f(v): return f"{v*100:.2f}%" if v is not None else "—"
+                        def _mrd_f(v): return f"{v/1e9:.1f} Mrd" if v is not None else "—"
+                        _etf_snap = {
+                            "name":       asset_name or ypb.get("profile",{}).get("name") or ticker,
+                            "ticker":     ticker,
+                            "kategorie":  (_ei.get("category") or "") + (" · " + _ei.get("fundFamily","") if _ei.get("fundFamily") else ""),
+                            "ter":        _pct_f(_ei.get("annualReportExpenseRatio") or _ei.get("expenseRatio")),
+                            "fondsvolumen": _mrd_f(_ei.get("totalAssets")),
+                            "rendite_ytd": _pct_f(_ei.get("ytdReturn")),
+                            "rendite_3j":  _pct_f(_ei.get("threeYearAverageReturn")),
+                            "rendite_5j":  _pct_f(_ei.get("fiveYearAverageReturn")),
+                            "etf_score":  st.session_state.get("etf_q_score"),
+                            "etf_score_gruende": st.session_state.get("etf_q_reasons", [])[:4],
+                            "top_holdings": [
+                                {"name": h.get("holdingName",""), "gewicht": _pct_f(h.get("holdingPercent"))}
+                                for h in (_ei.get("holdings") or [])[:5]
+                            ],
+                            "timing_score": st.session_state.timing_score,
+                            "timing_gruende": st.session_state.timing_reasons[:3] if st.session_state.timing_reasons else [],
+                            "portfolio_etfs": [p.get("ticker","") for pn in PORTFOLIO_NAMES
+                                               for p in load_portfolio().get(pn,{}).get("positions",[])
+                                               if p.get("ticker","").upper() in ETF_MAP],
+                        }
+                        _ace_etf_api = (st.secrets.get("OPENAI_API_KEY") or
+                                        os.environ.get("OPENAI_API_KEY") or "") if OPENAI_AVAILABLE else ""
+                        try:
+                            if not _ace_etf_api or not OPENAI_AVAILABLE:
+                                raise RuntimeError("OpenAI API-Key nicht konfiguriert.")
+                            _etf_client = OpenAI(api_key=_ace_etf_api)
+                            with st.spinner("Ace analysiert ETF…"):
+                                _etf_resp = _etf_client.responses.create(
+                                    model="gpt-4.1-mini",
+                                    input=[
+                                        {"role": "system", "content": ACE_ETF_PROMPT},
+                                        {"role": "user",   "content": f"ETF-Daten:\n{json.dumps(_etf_snap, ensure_ascii=False, indent=2)}"},
+                                    ],
+                                )
+                            st.session_state.ace_long_fazit = getattr(_etf_resp, "output_text", "").strip()
+                            st.session_state.ace_long_key   = snap_key
+                        except Exception as _etf_e:
+                            st.session_state.ace_long_fazit = ""
+                            st.session_state.ace_long_key   = ""
+                            st.error(str(_etf_e))
+            else:
+                # ── Aktien-Fazit (unverändert) ───────────────────────────────
+                _fazit_btn = ("▶  Ace erklärt es dir" if _fazit_ul == "beginner"
+                              else "▶  Vollständiges Fazit generieren")
+                if st.button(_fazit_btn, use_container_width=True, key="btn_ace_fazit"):
+                    if not (st.session_state.ace_long_fazit and st.session_state.ace_long_key == snap_key):
+                        _triggers_for_ace = build_entry_triggers(mode, metrics, st.session_state.timing_score,
+                                                                  st.session_state.chart_df, has_position, bpv, lp)
+                        _risks_for_ace    = build_risk_hints(mode, metrics, st.session_state.story_info,
+                                                              st.session_state.fund_score, st.session_state.timing_score,
+                                                              st.session_state.chart_df)
+                        snap = {
+                            "asset":     {"name": asset_name or profile.get("name") or ticker, "ticker": ticker},
+                            "einordnung": mode,
+                            "profile":   profile if st.session_state.story_info else None,
+                            "fundament": {"kennzahlen": metrics, "score": st.session_state.fund_score,
+                                          "beobachtungen": st.session_state.fund_reasons},
+                            "business_story": {"score": st.session_state.story_score,
+                                               "beobachtungen": st.session_state.story_reasons,
+                                               "profil": st.session_state.story_info} if st.session_state.story_info else None,
+                            "timing":    {"score": st.session_state.timing_score,
+                                          "beobachtungen": st.session_state.timing_reasons,
+                                          "kontext": st.session_state.chart_bg},
+                            "fazit":     {"gesamt_score": total, "handlung": action, "warum": why},
+                            "entry_trigger": _triggers_for_ace, "risiken": _risks_for_ace,
+                            "portfolio": {"im_portfolio": has_position, "kaufkurs": bpv, "aktueller_kurs": lp,
+                                          "seit_kauf_perf": perf2, "depotgroesse": ptv,
+                                          "positionswert": pvv, "positionsgewicht": wt2},
+                            "red_flags": st.session_state.red_flags,
+                        }
+                        _ace_model = "gpt-4.1-mini"
+                        try:
+                            with st.spinner("Ace schreibt…"):
+                                txt = ace_fazit(snap, model=_ace_model,
+                                                user_level=st.session_state.get("user_level","pro"))
+                            st.session_state.ace_long_fazit = txt
+                            st.session_state.ace_long_key   = snap_key
+                        except Exception as e:
+                            st.session_state.ace_long_fazit = ""
+                            st.session_state.ace_long_key   = ""
+                            st.error(str(e))
 
             if st.session_state.ace_long_fazit:
                 st.markdown(
@@ -6539,11 +7270,17 @@ with tab_analyse:
                     f'{st.session_state.ace_long_fazit}</div>',
                     unsafe_allow_html=True)
             else:
+                _ace_desc = (
+                    "Ace bewertet TER, Fondsvolumen, Renditehistorie und Depot-Fit — "
+                    "wie im Gespräch mit einem erfahrenen ETF-Anleger."
+                    if _is_etf_ticker else
+                    "Ace fasst alle Scores zusammen und gibt eine persönliche Einschätzung — "
+                    "wie im Gespräch mit einem erfahrenen Investor."
+                )
                 st.markdown(
-                    '<div style="font-size:0.82rem;color:var(--text-color);opacity:0.42;'
-                    'line-height:1.6;margin-top:0.35rem;padding-left:0.1rem;">'
-                    'Ace fasst alle Scores zusammen und gibt eine persönliche Einschätzung — '
-                    'wie im Gespräch mit einem erfahrenen Investor.</div>',
+                    f'<div style="font-size:0.82rem;color:var(--text-color);opacity:0.42;'
+                    f'line-height:1.6;margin-top:0.35rem;padding-left:0.1rem;">'
+                    f'{_ace_desc}</div>',
                     unsafe_allow_html=True)
                 if not OPENAI_AVAILABLE:
                     st.caption("⚠ openai SDK nicht installiert — in requirements.txt ergänzen.")
