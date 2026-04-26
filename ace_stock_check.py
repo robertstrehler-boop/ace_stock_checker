@@ -7896,14 +7896,17 @@ with tab_portfolio:
             # ── FORTGESCHRITTENER — Willkommen + direkt Import ───────────
             else:
                 st.markdown(
-                    '<div style="padding:0.2rem 0 1.4rem 0;">'
-                    '<div style="font-size:1.45rem;font-weight:800;margin-bottom:0.4rem;">'
-                    'Herzlichen Willkommen beim Velox Depot</div>'
-                    '<div style="font-size:0.9rem;color:var(--text-color);opacity:0.55;'
-                    'line-height:1.75;max-width:560px;">'
-                    'Hier kannst du mehrere Portfolios verwalten, monitoren und analysieren lassen. '
-                    'Starte direkt mit dem Import deines Depots.</div>'
-                    '</div>', unsafe_allow_html=True)
+'<div style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.15);'
+'border-radius:16px;padding:2rem 2.2rem 1.8rem 2.2rem;margin-bottom:0.3rem;">'
+'<div style="font-size:0.7rem;letter-spacing:0.14em;text-transform:uppercase;'
+'color:#10b981;font-weight:700;margin-bottom:0.5rem;">Velox Depot</div>'
+'<div style="font-size:1.55rem;font-weight:800;margin-bottom:0.4rem;line-height:1.2;">'
+'Herzlichen Willkommen</div>'
+'<div style="font-size:0.9rem;color:var(--text-color);opacity:0.6;line-height:1.8;max-width:580px;">'
+'Hier kannst du mehrere Portfolios verwalten, monitoren und analysieren lassen. '
+'Starte direkt mit dem Import deines Depots.</div>'
+'</div>',
+                    unsafe_allow_html=True)
 
             st.divider()
 
