@@ -5004,17 +5004,24 @@ with _hc:
 </div>
 """, unsafe_allow_html=True)
 with _lvc:
-    # Vertikale Ausrichtung: gleicher Abstand wie Logo-Padding
     st.markdown('<div style="height:0.85rem;"></div>', unsafe_allow_html=True)
     _lvl_cur = st.session_state.get("user_level", "beginner")
+    # Wenn ein Wechsel hängig ist, zeigen wir den noch nicht bestätigten Level
+    # im Radio an — damit der User sieht was er ausgewählt hat (Warnung erscheint unten)
+    _lvl_display = st.session_state.get("_pending_level", _lvl_cur)
     _lvl_radio = st.radio(
         "Level", ["Einsteiger", "Fortgeschritten"],
         horizontal=True,
         label_visibility="collapsed",
-        index=0 if _lvl_cur == "beginner" else 1,
+        index=0 if _lvl_display == "beginner" else 1,
         key="hdr_level_radio",
     )
-    st.session_state["user_level"] = "beginner" if _lvl_radio == "Einsteiger" else "pro"
+    _lvl_new = "beginner" if _lvl_radio == "Einsteiger" else "pro"
+
+    # ── Modus-Wechsel: Warnung anzeigen statt sofort umschalten ──────────────
+    # Nur einen neuen Wechsel registrieren wenn noch kein pending läuft
+    if _lvl_new != _lvl_cur and not st.session_state.get("_pending_level"):
+        st.session_state["_pending_level"] = _lvl_new
 with _rc:
     st.markdown('<div style="height:0.85rem;"></div>', unsafe_allow_html=True)
     # Top Bar: immer "＋ Neue Aktie" — "Portfolio einrichten" nur im Portfolio-Tab selbst
@@ -5119,6 +5126,45 @@ if _switch_target:
 }})();
 </script>
 """, height=0)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Modus-Wechsel Warnung (Banner vor den Tabs)
+# ══════════════════════════════════════════════════════════════════════════════
+_pending_lvl = st.session_state.get("_pending_level")
+if _pending_lvl:
+    _target_label = "Fortgeschritten" if _pending_lvl == "pro" else "Einsteiger"
+    _warn_html = (
+        '<div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.35);'
+        'border-radius:10px;padding:1rem 1.2rem;margin-bottom:1rem;">'
+        '<div style="display:flex;align-items:flex-start;gap:0.8rem;">'
+        '<div style="font-size:1.25rem;line-height:1.2;flex-shrink:0;">⚠️</div>'
+        '<div>'
+        '<div style="font-weight:600;font-size:0.95rem;margin-bottom:0.3rem;">Modus wechseln zu: ' + _target_label + '</div>'
+        '<div style="font-size:0.85rem;opacity:0.8;line-height:1.5;">Wenn du den Modus wechselst, ändert sich die Portfolio-Logik und du musst dein Portfolio neu anlegen.</div>'
+        '</div></div>'
+        '</div>'
+    )
+    st.markdown(_warn_html, unsafe_allow_html=True)
+    _warn_col1, _warn_col2, _warn_col3 = st.columns([2.5, 1.5, 1.5])
+    with _warn_col2:
+        if st.button("✓ Modus wechseln & Portfolio zurücksetzen", key="confirm_level_switch", use_container_width=True, type="primary"):
+            # Portfolio zurücksetzen
+            for _pk in [
+                "portfolio", "portfolio_import_csv", "portfolio_goals",
+                "portfolio_wizard_step", "portfolio_name",
+                "pf_names", "pf_active",
+            ]:
+                st.session_state.pop(_pk, None)
+            # Level umschalten
+            st.session_state["user_level"] = _pending_lvl
+            st.session_state.pop("_pending_level", None)
+            st.rerun()
+    with _warn_col3:
+        if st.button("✗ Abbrechen", key="cancel_level_switch", use_container_width=True):
+            st.session_state.pop("_pending_level", None)
+            # Widget-Key zurücksetzen damit das Radio auf den bestätigten Level zurückspringt
+            st.session_state.pop("hdr_level_radio", None)
+            st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Tabs
