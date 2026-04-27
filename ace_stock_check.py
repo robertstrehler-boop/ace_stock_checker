@@ -8734,13 +8734,20 @@ with tab_portfolio:
                 ])
                 st.markdown(f'<div style="text-align:center;margin-bottom:1.2rem;">{_dots}</div>', unsafe_allow_html=True)
 
-                # Step 0: Willkommen ──────────────────────────────────────────
+                # Step 0: Willkommen Einsteiger ───────────────────────────────
                 if _wiz_step == 0:
                     st.markdown(
-                        '<div style="text-align:center;padding:1rem 0 1.5rem 0;">'
-                        '<div style="font-size:1.5rem;font-weight:800;margin-bottom:0.5rem;">Willkommen bei Velox</div>'
-                        '<div style="font-size:0.9rem;color:var(--text-color);opacity:0.55;line-height:1.7;max-width:480px;margin:0 auto;">'
-                        'Lass uns dein Depot in drei Schritten einrichten — damit Velox dir genau die richtigen Aktien zeigt.</div>'
+                        '<div style="background:rgba(82,183,136,0.07);border:1px solid rgba(82,183,136,0.22);'
+                        'border-radius:16px;padding:2rem 2.2rem 1.8rem 2.2rem;margin-bottom:1rem;position:relative;overflow:hidden;">'
+                        '<div style="position:absolute;top:-40%;right:-8%;width:260px;height:260px;'
+                        'background:radial-gradient(circle,rgba(82,183,136,0.10) 0%,transparent 65%);pointer-events:none;"></div>'
+                        '<div style="font-size:0.68rem;font-weight:900;letter-spacing:0.22em;'
+                        'text-transform:uppercase;margin-bottom:0.55rem;">'
+                        'VELOX DEPOT <span style="color:#52B788;">START</span></div>'
+                        '<div style="font-size:1.55rem;font-weight:800;margin-bottom:0.4rem;line-height:1.2;">'
+                        'Herzlich willkommen</div>'
+                        '<div style="font-size:0.9rem;color:var(--text-color);opacity:0.6;line-height:1.8;max-width:580px;">'
+                        'Lass uns dein Depot in drei Schritten einrichten — damit Velox dir genau die richtigen Ideen zeigt.</div>'
                         '</div>', unsafe_allow_html=True)
                     _, _wc, _ = st.columns([1, 2, 1])
                     with _wc:
@@ -8962,12 +8969,15 @@ with tab_portfolio:
             # ── FORTGESCHRITTENER — Willkommen + direkt Import ───────────
             else:
                 st.markdown(
-'<div style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.15);'
-'border-radius:16px;padding:2rem 2.2rem 1.8rem 2.2rem;margin-bottom:0.3rem;">'
-'<div style="font-size:0.7rem;letter-spacing:0.14em;text-transform:uppercase;'
-'color:#10b981;font-weight:700;margin-bottom:0.5rem;">Velox Depot</div>'
+'<div style="background:rgba(252,238,171,0.07);border:1px solid rgba(252,238,171,0.22);'
+'border-radius:16px;padding:2rem 2.2rem 1.8rem 2.2rem;margin-bottom:0.3rem;position:relative;overflow:hidden;">'
+'<div style="position:absolute;top:-40%;right:-8%;width:260px;height:260px;'
+'background:radial-gradient(circle,rgba(252,238,171,0.10) 0%,transparent 65%);pointer-events:none;"></div>'
+'<div style="font-size:0.68rem;font-weight:900;letter-spacing:0.22em;'
+'text-transform:uppercase;margin-bottom:0.55rem;">'
+'VELOX DEPOT <span style="color:#FCEEAB;text-shadow:0 0 12px rgba(252,238,171,0.5);">PRO</span></div>'
 '<div style="font-size:1.55rem;font-weight:800;margin-bottom:0.4rem;line-height:1.2;">'
-'Herzlichen Willkommen</div>'
+'Herzlich willkommen</div>'
 '<div style="font-size:0.9rem;color:var(--text-color);opacity:0.6;line-height:1.8;max-width:580px;">'
 'Hier kannst du mehrere Portfolios verwalten, monitoren und analysieren lassen. '
 'Starte direkt mit dem Import deines Depots.</div>'
