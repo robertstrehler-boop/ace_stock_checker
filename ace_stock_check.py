@@ -20,6 +20,30 @@ try:
 except Exception:
     OPENAI_AVAILABLE = False
 
+try:
+    from supabase import create_client, Client as SupabaseClient
+    SUPABASE_AVAILABLE = True
+except Exception:
+    SUPABASE_AVAILABLE = False
+
+# ── Supabase-Client initialisieren ────────────────────────────────────────────
+def _get_supabase() -> "SupabaseClient | None":
+    """Gibt Supabase-Client zurück oder None wenn nicht konfiguriert (Fallback-Modus)."""
+    if not SUPABASE_AVAILABLE:
+        return None
+    try:
+        _cfg = st.secrets.get("supabase", {})
+        _url = _cfg.get("url") or os.environ.get("SUPABASE_URL", "")
+        _key = _cfg.get("anon_key") or os.environ.get("SUPABASE_ANON_KEY", "")
+        if not _url or not _key:
+            return None
+        return create_client(_url, _key)
+    except Exception:
+        return None
+
+_SB = _get_supabase()
+_SUPABASE_MODE = _SB is not None   # True = Supabase, False = JSON-Fallback
+
 WATCHLIST_FILE  = "watchlist.json"
 PORTFOLIO_FILE  = "portfolio.json"
 PORTFOLIO_NAMES = ["Quiet Compounder", "Hidden Champions"]
@@ -456,6 +480,151 @@ GROWTH_SECTORS    = {"Technology", "Consumer Cyclical", "Communication Services"
 st.set_page_config(page_title="Velox", page_icon="⚡", layout="wide")
 
 # ══════════════════════════════════════════════════════════════════════════════
+# AUTH — Login / Session-Handling
+# ══════════════════════════════════════════════════════════════════════════════
+
+def get_current_user():
+    """Gibt den eingeloggten User aus session_state zurück, oder None."""
+    return st.session_state.get("velox_user")
+
+def get_user_id() -> str | None:
+    """User-ID des eingeloggten Users."""
+    u = get_current_user()
+    return u.get("id") if u else None
+
+def get_user_plan() -> str:
+    """Gibt den Plan des Users zurück: 'free', 'pro' oder 'team'."""
+    if not _SUPABASE_MODE:
+        return "pro"  # Fallback-Modus: alles freigeschaltet
+    uid = get_user_id()
+    if not uid:
+        return "free"
+    try:
+        cached = st.session_state.get("velox_plan_cache")
+        if cached:
+            return cached
+        res = _SB.table("profiles").select("plan").eq("user_id", uid).single().execute()
+        plan = res.data.get("plan", "free") if res.data else "free"
+        st.session_state["velox_plan_cache"] = plan
+        return plan
+    except Exception:
+        return "free"
+
+def is_pro() -> bool:
+    return get_user_plan() in ("pro", "team")
+
+def _render_login_screen():
+    """Vollbild-Login wenn kein User eingeloggt."""
+    st.markdown("""
+    <style>
+    [data-testid="stAppViewContainer"] > .main { padding-top: 0 !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    col_l, col_m, col_r = st.columns([1, 1.4, 1])
+    with col_m:
+        st.markdown("<div style='height:4rem'></div>", unsafe_allow_html=True)
+        st.markdown(
+            '<div style="text-align:center;margin-bottom:0.3rem;">'
+            '<span style="font-size:2.2rem;font-weight:900;letter-spacing:0.04em;color:#FF8F1C;">Velox</span>'
+            '<span style="font-size:0.9rem;letter-spacing:0.16em;text-transform:uppercase;'
+            'opacity:0.45;margin-left:0.6rem;">Stock Check</span></div>'
+            '<div style="text-align:center;font-size:0.9rem;opacity:0.5;margin-bottom:2.5rem;">'
+            'Fundierte Entscheidungen. Klare Daten.</div>',
+            unsafe_allow_html=True)
+
+        _tab_login, _tab_signup = st.tabs(["Einloggen", "Registrieren"])
+
+        with _tab_login:
+            _email_li = st.text_input("E-Mail", key="login_email",
+                                       placeholder="deine@email.de")
+            _pw_li    = st.text_input("Passwort", type="password", key="login_pw",
+                                       placeholder="Passwort")
+            if st.button("→ Einloggen", use_container_width=True, key="btn_login"):
+                if _email_li and _pw_li:
+                    try:
+                        res = _SB.auth.sign_in_with_password(
+                            {"email": _email_li, "password": _pw_li})
+                        st.session_state["velox_user"] = {
+                            "id":    res.user.id,
+                            "email": res.user.email,
+                        }
+                        st.session_state["velox_session"] = res.session.access_token
+                        st.rerun()
+                    except Exception as e:
+                        err = str(e).lower()
+                        if "invalid" in err or "credentials" in err:
+                            st.error("E-Mail oder Passwort falsch.")
+                        else:
+                            st.error(f"Login fehlgeschlagen: {e}")
+                else:
+                    st.warning("Bitte E-Mail und Passwort eingeben.")
+
+            st.markdown("<div style='margin-top:0.5rem;text-align:center;"
+                        "font-size:0.8rem;opacity:0.5;'>Passwort vergessen? "
+                        "<a href='#' style='color:inherit;'>Reset anfordern</a></div>",
+                        unsafe_allow_html=True)
+
+        with _tab_signup:
+            _email_su = st.text_input("E-Mail", key="signup_email",
+                                       placeholder="deine@email.de")
+            _pw_su    = st.text_input("Passwort", type="password", key="signup_pw",
+                                       placeholder="Mindestens 8 Zeichen")
+            _pw_su2   = st.text_input("Passwort wiederholen", type="password",
+                                       key="signup_pw2", placeholder="Passwort bestätigen")
+            if st.button("→ Account erstellen", use_container_width=True, key="btn_signup"):
+                if not _email_su or not _pw_su:
+                    st.warning("Bitte alle Felder ausfüllen.")
+                elif _pw_su != _pw_su2:
+                    st.error("Passwörter stimmen nicht überein.")
+                elif len(_pw_su) < 8:
+                    st.error("Passwort muss mindestens 8 Zeichen haben.")
+                else:
+                    try:
+                        res = _SB.auth.sign_up(
+                            {"email": _email_su, "password": _pw_su})
+                        if res.user:
+                            st.success("Account erstellt! Bitte bestätige deine E-Mail, "
+                                       "dann kannst du dich einloggen.")
+                        else:
+                            st.error("Registrierung fehlgeschlagen.")
+                    except Exception as e:
+                        st.error(f"Fehler: {e}")
+
+        st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
+        st.divider()
+        st.markdown(
+            '<div style="text-align:center;font-size:0.75rem;opacity:0.4;margin-top:0.5rem;">'
+            'Velox Stock Check · Keine Anlageberatung</div>',
+            unsafe_allow_html=True)
+
+# ── Auth-Gate: Zeige Login wenn kein User eingeloggt (nur im Supabase-Modus) ──
+if _SUPABASE_MODE and not get_current_user():
+    _render_login_screen()
+    st.stop()
+
+# ── Logout-Funktion (wird in Sidebar eingebunden) ─────────────────────────────
+def _render_logout_button():
+    if not _SUPABASE_MODE:
+        return
+    u = get_current_user()
+    if not u:
+        return
+    st.sidebar.markdown("---")
+    st.sidebar.caption(f"👤 {u.get('email','')}")
+    _plan = get_user_plan()
+    _plan_badge = {"free": "Free", "pro": "⭐ Pro", "team": "🏢 Team"}.get(_plan, _plan)
+    st.sidebar.caption(f"Plan: {_plan_badge}")
+    if st.sidebar.button("Abmelden", key="btn_logout"):
+        try:
+            _SB.auth.sign_out()
+        except Exception:
+            pass
+        for k in ["velox_user", "velox_session", "velox_plan_cache"]:
+            st.session_state.pop(k, None)
+        st.rerun()
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Helpers
 # ══════════════════════════════════════════════════════════════════════════════
 def to_float(x):
@@ -513,7 +682,29 @@ def fmt_v(v, fallback=""):
 # Watchlist — Snapshot-basiert
 # Struktur: [{ticker, name, mode, notes, snapshots:[{saved_at, scores, triggers, risks, ...}]}]
 # ══════════════════════════════════════════════════════════════════════════════
+def _wl_key(ticker, mode): return (ticker.upper(), mode)
+
 def load_watchlist():
+    """Lädt Watchlist — aus Supabase (pro User) oder JSON-Fallback."""
+    if _SUPABASE_MODE:
+        uid = get_user_id()
+        if not uid: return []
+        try:
+            res = _SB.table("watchlist_items").select("*").eq("user_id", uid).execute()
+            items = []
+            for row in (res.data or []):
+                items.append({
+                    "ticker":    row.get("ticker", ""),
+                    "name":      row.get("name", ""),
+                    "mode":      row.get("mode", ""),
+                    "notes":     row.get("notes", ""),
+                    "snapshots": row.get("snapshots") or [],
+                    "_sb_id":    row.get("id"),
+                })
+            return items
+        except Exception:
+            return []
+    # ── JSON-Fallback ──────────────────────────────────────────────────────────
     if not os.path.exists(WATCHLIST_FILE): return []
     try:
         raw = json.load(open(WATCHLIST_FILE, "r", encoding="utf-8"))
@@ -530,14 +721,45 @@ def load_watchlist():
         return migrated
     except Exception: return []
 
-def _wl_key(ticker, mode): return (ticker.upper(), mode)
-
 def save_snapshot_to_watchlist(entry, notes=""):
-    wl = load_watchlist()
-    key = _wl_key(entry["ticker"], entry["mode"])
+    """Speichert Watchlist-Snapshot — Supabase oder JSON-Fallback."""
     snapshot = {k: entry.get(k) for k in
                 ("saved_at","fund_score","timing_score","story_score","total_score",
                  "action","triggers","risks","metrics","red_flags")}
+    if _SUPABASE_MODE:
+        uid = get_user_id()
+        if not uid: return
+        try:
+            tkr = entry["ticker"].upper()
+            # Prüfen ob Eintrag schon existiert
+            existing = _SB.table("watchlist_items").select("id, snapshots") \
+                .eq("user_id", uid).eq("ticker", tkr).eq("mode", entry["mode"]).execute()
+            if existing.data:
+                row      = existing.data[0]
+                snaps    = row.get("snapshots") or []
+                snaps.append(snapshot)
+                _SB.table("watchlist_items").update({
+                    "snapshots":  snaps,
+                    "name":       entry.get("name", tkr),
+                    "notes":      notes or "",
+                    "updated_at": datetime.utcnow().isoformat(),
+                }).eq("id", row["id"]).execute()
+            else:
+                _SB.table("watchlist_items").insert({
+                    "user_id":   uid,
+                    "ticker":    tkr,
+                    "name":      entry.get("name", tkr),
+                    "mode":      entry.get("mode", ""),
+                    "notes":     notes or "",
+                    "snapshots": [snapshot],
+                    "saved_at":  datetime.utcnow().isoformat(),
+                }).execute()
+        except Exception:
+            pass
+        return
+    # ── JSON-Fallback ──────────────────────────────────────────────────────────
+    wl  = load_watchlist()
+    key = _wl_key(entry["ticker"], entry["mode"])
     for item in wl:
         if _wl_key(item["ticker"], item["mode"]) == key:
             item["snapshots"].append(snapshot)
@@ -550,7 +772,17 @@ def save_snapshot_to_watchlist(entry, notes=""):
     json.dump(wl, open(WATCHLIST_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 
 def update_watchlist_notes(ticker, mode, notes):
-    wl = load_watchlist()
+    """Aktualisiert Notizen — Supabase oder JSON-Fallback."""
+    if _SUPABASE_MODE:
+        uid = get_user_id()
+        if not uid: return
+        try:
+            _SB.table("watchlist_items").update({"notes": notes}) \
+                .eq("user_id", uid).eq("ticker", ticker.upper()).eq("mode", mode).execute()
+        except Exception:
+            pass
+        return
+    wl  = load_watchlist()
     key = _wl_key(ticker, mode)
     for item in wl:
         if _wl_key(item["ticker"], item["mode"]) == key:
@@ -558,6 +790,16 @@ def update_watchlist_notes(ticker, mode, notes):
     json.dump(wl, open(WATCHLIST_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 
 def remove_from_watchlist(ticker, mode):
+    """Löscht Watchlist-Eintrag — Supabase oder JSON-Fallback."""
+    if _SUPABASE_MODE:
+        uid = get_user_id()
+        if not uid: return
+        try:
+            _SB.table("watchlist_items").delete() \
+                .eq("user_id", uid).eq("ticker", ticker.upper()).eq("mode", mode).execute()
+        except Exception:
+            pass
+        return
     wl = [x for x in load_watchlist() if _wl_key(x["ticker"], x["mode"]) != _wl_key(ticker, mode)]
     json.dump(wl, open(WATCHLIST_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 
@@ -829,6 +1071,29 @@ Ton: direkt, sachkundig, ohne Floskeln. Kein "Als KI..." oder ähnliches. Maxima
 #              invested, last_updated, notes }
 # ══════════════════════════════════════════════════════════════════════════════
 def load_portfolio():
+    """Lädt alle Portfolios — aus Supabase (pro User) oder JSON-Fallback."""
+    if _SUPABASE_MODE:
+        uid = get_user_id()
+        if not uid: return {n: {"positions": []} for n in PORTFOLIO_NAMES}
+        try:
+            res = _SB.table("portfolio_positions").select("*").eq("user_id", uid).execute()
+            data = {n: {"positions": []} for n in PORTFOLIO_NAMES}
+            for row in (res.data or []):
+                pname = row.get("portfolio_name", PORTFOLIO_NAMES[0])
+                if pname not in data:
+                    data[pname] = {"positions": []}
+                data[pname]["positions"].append({
+                    "ticker":    row.get("ticker", ""),
+                    "name":      row.get("name", ""),
+                    "shares":    row.get("shares"),
+                    "avg_price": row.get("avg_price"),
+                    "currency":  row.get("currency", "EUR"),
+                    "_sb_id":    row.get("id"),
+                })
+            return data
+        except Exception:
+            return {n: {"positions": []} for n in PORTFOLIO_NAMES}
+    # ── JSON-Fallback ──────────────────────────────────────────────────────────
     if not os.path.exists(PORTFOLIO_FILE): return {n: {"positions": []} for n in PORTFOLIO_NAMES}
     try:
         data = json.load(open(PORTFOLIO_FILE, "r", encoding="utf-8"))
@@ -839,7 +1104,54 @@ def load_portfolio():
         return {n: {"positions": []} for n in PORTFOLIO_NAMES}
 
 def save_portfolio(data):
+    """Speichert Portfolio-Daten — Supabase oder JSON-Fallback."""
+    if _SUPABASE_MODE:
+        uid = get_user_id()
+        if not uid: return
+        try:
+            for pname, pdata in data.items():
+                if pname.startswith("_"): continue
+                for pos in pdata.get("positions", []):
+                    sb_id = pos.get("_sb_id")
+                    row = {
+                        "user_id":        uid,
+                        "portfolio_name": pname,
+                        "ticker":         pos.get("ticker", ""),
+                        "name":           pos.get("name", ""),
+                        "shares":         pos.get("shares"),
+                        "avg_price":      pos.get("avg_price"),
+                        "currency":       pos.get("currency", "EUR"),
+                        "updated_at":     datetime.utcnow().isoformat(),
+                    }
+                    if sb_id:
+                        _SB.table("portfolio_positions").update(row).eq("id", sb_id).execute()
+                    else:
+                        res = _SB.table("portfolio_positions").insert(row).execute()
+                        if res.data:
+                            pos["_sb_id"] = res.data[0]["id"]
+        except Exception:
+            pass
+        return
+    # ── JSON-Fallback ──────────────────────────────────────────────────────────
     json.dump(data, open(PORTFOLIO_FILE, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+
+def delete_portfolio_position(sb_id: int | None, portfolio_data: dict,
+                               portfolio_name: str, ticker: str):
+    """Löscht eine Position — Supabase oder JSON-Fallback."""
+    if _SUPABASE_MODE and sb_id:
+        uid = get_user_id()
+        if uid:
+            try:
+                _SB.table("portfolio_positions").delete().eq("id", sb_id).execute()
+            except Exception:
+                pass
+    # In-Memory-Daten bereinigen
+    positions = portfolio_data.get(portfolio_name, {}).get("positions", [])
+    portfolio_data[portfolio_name]["positions"] = [
+        p for p in positions if p.get("ticker","").upper() != ticker.upper()
+    ]
+    if not _SUPABASE_MODE:
+        save_portfolio(portfolio_data)
 
 def pf_display_name(port_data: dict, internal_name: str) -> str:
     """Gibt den benutzerdefinierten Portfolio-Namen zurück, oder den internen Namen."""
@@ -5563,6 +5875,9 @@ with _rc:
             st.session_state.pop(_wk, None)
         st.rerun()
 
+# Logout-Button in Sidebar (nur im Supabase-Modus)
+_render_logout_button()
+
 # Ticker Tape — nach Header, vor Tabs
 render_ticker_tape()
 
@@ -7175,7 +7490,14 @@ with tab_analyse:
                 # ── ETF-Fazit ────────────────────────────────────────────────
                 _etf_fazit_btn = ("▶  Ace erklärt den ETF" if _fazit_ul == "beginner"
                                   else "▶  ETF-Einschätzung generieren")
-                if st.button(_etf_fazit_btn, use_container_width=True, key="btn_ace_etf_fazit"):
+                if not is_pro():
+                    st.markdown(
+                        '<div style="background:rgba(255,143,28,0.08);border:1px solid '
+                        'rgba(255,143,28,0.25);border-radius:10px;padding:0.7rem 1rem;'
+                        'font-size:0.85rem;color:var(--text-color);">'
+                        '⭐ <strong>Pro-Feature</strong> — KI-Einschätzung nur im Pro-Plan verfügbar.</div>',
+                        unsafe_allow_html=True)
+                elif st.button(_etf_fazit_btn, use_container_width=True, key="btn_ace_etf_fazit"):
                     if not (st.session_state.ace_long_fazit and st.session_state.ace_long_key == snap_key):
                         _ei = st.session_state.get("ace_etf_info", {})
                         def _pct_f(v): return f"{v*100:.2f}%" if v is not None else "—"
@@ -7222,10 +7544,17 @@ with tab_analyse:
                             st.session_state.ace_long_key   = ""
                             st.error(str(_etf_e))
             else:
-                # ── Aktien-Fazit (unverändert) ───────────────────────────────
+                # ── Aktien-Fazit ─────────────────────────────────────────────
                 _fazit_btn = ("▶  Ace erklärt es dir" if _fazit_ul == "beginner"
                               else "▶  Vollständiges Fazit generieren")
-                if st.button(_fazit_btn, use_container_width=True, key="btn_ace_fazit"):
+                if not is_pro():
+                    st.markdown(
+                        '<div style="background:rgba(255,143,28,0.08);border:1px solid '
+                        'rgba(255,143,28,0.25);border-radius:10px;padding:0.7rem 1rem;'
+                        'font-size:0.85rem;color:var(--text-color);">'
+                        '⭐ <strong>Pro-Feature</strong> — KI-Fazit nur im Pro-Plan verfügbar.</div>',
+                        unsafe_allow_html=True)
+                elif st.button(_fazit_btn, use_container_width=True, key="btn_ace_fazit"):
                     if not (st.session_state.ace_long_fazit and st.session_state.ace_long_key == snap_key):
                         _triggers_for_ace = build_entry_triggers(mode, metrics, st.session_state.timing_score,
                                                                   st.session_state.chart_df, has_position, bpv, lp)
